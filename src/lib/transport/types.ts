@@ -24,6 +24,8 @@ export interface RideLeg {
   detail: string;
   from: string;
   to: string;
+  /** Names of the stops between `from` and `to` (both excluded), in travel order. Empty when there are none. */
+  stops: string[];
   platform?: string;
   /** Route number for buses, e.g. "223". */
   busNumber?: string;

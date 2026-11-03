@@ -1,0 +1,181 @@
+/* Ported from design/hopline.html. Same tokens and classes; additions are marked "a11y". */
+:root {
+  --bg: #E9EDF2; --surface: #FFFFFF; --surface2: #F3F5F8; --ink: #13202E; --muted: #5E6B7A; --line: #D6DCE4;
+  --accent: #FFC93C; --accentInk: #13202E; --violet: #5B4BDB; --good: #1F9D6B; --warn: #D9822B; --bad: #D64545;
+  /* a11y: darker text versions of the status colours so badge text meets 4.5:1 */
+  --goodInk: #136E49; --warnInk: #8A4A0E; --badInk: #A82E2E;
+  --map1: #DCE3EA; --map2: #C9D3DD; --park: #CFE5D3; --water: #BFD7EA;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E151D; --surface: #18222D; --surface2: #1F2B38; --ink: #EAF0F6; --muted: #93A1B1; --line: #2A3846;
+    --accent: #FFC93C; --accentInk: #13202E; --violet: #8C80FF; --good: #3CC48D; --warn: #F0A04B; --bad: #F06C6C;
+    --goodInk: #3CC48D; --warnInk: #F0A04B; --badInk: #F58A8A;
+    --map1: #1A2430; --map2: #243140; --park: #1E3328; --water: #1B3044;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E151D; --surface: #18222D; --surface2: #1F2B38; --ink: #EAF0F6; --muted: #93A1B1; --line: #2A3846;
+  --violet: #8C80FF; --good: #3CC48D; --warn: #F0A04B; --bad: #F06C6C;
+  --goodInk: #3CC48D; --warnInk: #F0A04B; --badInk: #F58A8A;
+  --map1: #1A2430; --map2: #243140; --park: #1E3328; --water: #1B3044; color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box }
+html, body { height: 100%; margin: 0 }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-bricolage), ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.35; -webkit-font-smoothing: antialiased;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0 }
+a { color: inherit; text-decoration: none }
+/* a11y: visible focus on everything focusable, not only buttons and inputs */
+button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--violet); outline-offset: 2px }
+h1:focus { outline: none }
+.visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+ul.plain, ol.plain { list-style: none; margin: 0; padding: 0 }
+
+.app { max-width: 440px; margin: 0 auto; height: 100%; display: flex; flex-direction: column; position: relative; overflow: hidden; background: var(--bg) }
+.screen { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch }
+svg.i { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round }
+svg.i.sm { width: 16px; height: 16px }
+
+/* bottom nav */
+.nav { display: flex; justify-content: space-around; background: var(--surface); border-top: 1px solid var(--line); padding: 8px 8px 10px }
+.nav a { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); padding: 4px 14px; border-radius: 14px }
+.nav a[aria-current="page"] { color: var(--ink); font-weight: 700 }
+.nav a[aria-current="page"] svg { stroke: var(--violet) }
+
+/* home */
+.mapwrap { position: relative; height: 300px }
+.mapwrap svg.map { position: absolute; inset: 0; width: 100%; height: 100% }
+.youare { position: absolute; left: 52%; top: 48%; width: 18px; height: 18px; border-radius: 50%; background: var(--violet); border: 3px solid var(--surface); box-shadow: 0 0 0 8px color-mix(in srgb, var(--violet) 22%, transparent) }
+.mapbtn { position: absolute; top: 14px; width: 42px; height: 42px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.15) }
+.sheet { position: relative; margin-top: -34px; background: var(--surface); border-radius: 28px 28px 0 0; padding: 22px 18px 24px; min-height: calc(100% - 266px) }
+.hello { font-size: 30px; font-weight: 800; letter-spacing: -.02em; margin: 0 0 14px; line-height: 1.05 }
+.searchbar { width: 100%; display: flex; align-items: center; gap: 12px; background: var(--accent); color: var(--accentInk); border-radius: 18px; padding: 16px 18px; font-size: 18px; font-weight: 600; text-align: left }
+.quick { display: flex; gap: 10px; margin: 14px 0 22px }
+.quick a { flex: 1; display: flex; align-items: center; gap: 10px; background: var(--surface2); border-radius: 16px; padding: 12px; text-align: left; min-width: 0 }
+.quick small { display: block; color: var(--muted); font-size: 13px }
+.quick b { font-weight: 700 }
+h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em }
+.modes { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin: 0 -18px 22px; padding-left: 18px; padding-right: 18px; scrollbar-width: none }
+.modes button { flex: none; display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 999px; padding: 9px 14px; font-weight: 600; font-size: 15px }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink) }
+.dep { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line) }
+.dep:first-child { border-top: 0 }
+.dep .meta { flex: 1; min-width: 0 }
+.dep .meta small { color: var(--muted); font-size: 14px }
+.mins { text-align: right; font-weight: 800; font-size: 22px; line-height: 1 }
+.mins small { display: block; font-size: 12px; font-weight: 500; color: var(--muted) }
+.pill { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 24px; padding: 0 8px; border-radius: 7px; font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap }
+.badge { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 7px; white-space: nowrap }
+.badge.warn { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warnInk) }
+.badge.good { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--goodInk) }
+.badge.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--badInk) }
+
+/* top bars */
+.topbar { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; background: var(--bg); position: sticky; top: 0; z-index: 5 }
+.iconbtn { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); flex: none }
+.iconbtn.alt { background: var(--surface2) }
+.title { font-size: 22px; font-weight: 800; letter-spacing: -.02em; flex: 1; margin: 0 }
+.topbar .title:first-child { padding-left: 4px }
+
+/* search */
+.fields { background: var(--surface); border-radius: 20px; margin: 0 14px; padding: 6px 6px 6px 16px; display: flex; align-items: center; gap: 8px }
+.fields .stack { flex: 1; position: relative }
+.fields .stack::before { content: ""; position: absolute; left: 5px; top: 28px; bottom: 28px; border-left: 2px dotted var(--muted) }
+.field { display: flex; align-items: center; gap: 12px; padding: 6px 0 }
+.dot { width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--violet); flex: none }
+.dot.end { border-radius: 3px; border-color: var(--ink); background: var(--ink) }
+.field input { flex: 1; min-width: 0; border: 0; background: var(--surface2); border-radius: 12px; padding: 12px; font: inherit; color: var(--ink) }
+.field input::placeholder { color: var(--muted) }
+.field input[data-active="true"] { box-shadow: inset 0 0 0 2px var(--violet) }
+.list { margin: 14px 14px 30px; background: var(--surface); border-radius: 20px; overflow: hidden; list-style: none; padding: 0 }
+.row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); text-align: left }
+.list > li:first-child > .row, .list > .row:first-child { border-top: 0 }
+.row .meta { flex: 1; min-width: 0 }
+.row small { color: var(--muted); font-size: 14px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.ico { width: 38px; height: 38px; border-radius: 12px; background: var(--surface2); display: grid; place-items: center; flex: none }
+.ico.violet { color: var(--violet) }
+.tabs { display: flex; gap: 6px; margin: 14px 14px 0 }
+.tabs button { padding: 8px 14px; border-radius: 999px; font-weight: 600; color: var(--muted) }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink) }
+.empty { padding: 22px 16px; color: var(--muted) }
+
+/* routes */
+.trip { background: var(--surface); border-radius: 20px; margin: 0 14px; padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 10px }
+.trip .meta { flex: 1; min-width: 0; font-weight: 700 }
+.trip .meta span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.trip .meta span + span { color: var(--muted); font-weight: 500 }
+.when { margin: 10px 14px 0; display: flex; gap: 8px }
+.when button { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; background: var(--surface); border-radius: 999px; padding: 8px 12px }
+.sorts { display: flex; gap: 8px; overflow-x: auto; padding: 14px 14px 4px; scrollbar-width: none }
+.sorts button { flex: none; border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 15px; border: 1.5px solid var(--line) }
+.sorts button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accentInk) }
+.alts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 14px 4px }
+.alts button { background: var(--surface); border-radius: 16px; padding: 10px 12px; text-align: left }
+.alts b { display: block; font-size: 20px; font-weight: 800; margin-top: 4px }
+.alts small { color: var(--muted); font-size: 13px }
+.card { display: block; width: calc(100% - 28px); margin: 10px 14px 0; background: var(--surface); border-radius: 20px; padding: 16px; text-align: left }
+.card .top { display: flex; align-items: baseline; gap: 10px }
+.card .dur { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1 }
+.card .dur small { font-size: 15px; font-weight: 600; margin-left: 2px }
+.card .arr { color: var(--muted); flex: 1 }
+.card .fare { font-weight: 700 }
+.tag { display: inline-block; margin-bottom: 8px; font-size: 13px; font-weight: 700; color: var(--violet) }
+.strip { display: flex; gap: 3px; height: 12px; margin: 14px 0 8px }
+.strip span { border-radius: 6px; min-width: 10px }
+.strip span.walk { background: repeating-linear-gradient(90deg, var(--muted) 0 4px, transparent 4px 8px); opacity: .6; height: 4px; align-self: center }
+.legs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; color: var(--muted); list-style: none; margin: 0; padding: 0 }
+.legs li { display: flex; align-items: center; gap: 6px }
+.legs .sep { opacity: .5 }
+.next { margin-top: 10px; font-size: 14px; color: var(--muted) }
+.next b { color: var(--goodInk) }
+.foot { color: var(--muted); font-size: 13px; text-align: center; padding: 18px 24px 28px; margin: 0 }
+
+/* detail */
+.summary { margin: 0 14px; background: var(--ink); color: var(--surface); border-radius: 22px; padding: 18px }
+.summary .dur { font-size: 44px; font-weight: 800; letter-spacing: -.03em; line-height: 1 }
+.summary small { opacity: .75 }
+.summary .strip span.walk { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px) }
+.tl { margin: 14px 14px 0; background: var(--surface); border-radius: 22px; padding: 8px 16px; list-style: none }
+.step { display: grid; grid-template-columns: 52px 22px 1fr; gap: 0 10px; min-height: 64px }
+.step .t { font-weight: 700; font-size: 15px; padding-top: 12px; text-align: right }
+.step .rail { position: relative; display: flex; justify-content: center }
+.step .rail::before { content: ""; position: absolute; top: 0; bottom: 0; width: 6px; border-radius: 3px; background: var(--c, var(--line)) }
+.step .rail.walk::before { width: 0; border-left: 3px dotted var(--muted); background: none }
+.step .rail i { position: relative; margin-top: 14px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); border: 4px solid var(--c, var(--ink)) }
+.step .rail.end i { border-radius: 4px; background: var(--ink); border-color: var(--ink) }
+.step .body { padding: 10px 0 14px }
+.step .body > b { display: flex; align-items: center; gap: 6px }
+.step .body small { color: var(--muted); font-size: 14px }
+.step .body small b { color: var(--ink) }
+.go { position: sticky; bottom: 0; padding: 14px; background: linear-gradient(transparent, var(--bg) 30%) }
+.primary { display: block; width: 100%; background: var(--accent); color: var(--accentInk); border-radius: 18px; padding: 16px; font-size: 18px; font-weight: 800; text-align: center }
+
+/* go mode */
+.gohead { margin: 0 14px; padding: 22px; border-radius: 24px; color: var(--ct, #fff); background: var(--c, #333) }
+.gohead small { opacity: .85 }
+.gohead .big { font-size: 30px; font-weight: 800; line-height: 1.1; margin: 6px 0 10px; letter-spacing: -.02em }
+.prog { height: 6px; background: color-mix(in srgb, currentColor 30%, transparent); border-radius: 3px; overflow: hidden }
+.prog i { display: block; height: 100%; background: currentColor; border-radius: 3px; transition: width .4s }
+.gonav { display: flex; gap: 10px; margin: 14px }
+.gonav button { flex: 1; background: var(--surface); border-radius: 16px; padding: 14px; font-weight: 700 }
+.gonav button.accent { background: var(--accent); color: var(--accentInk) }
+.gonav button:disabled { opacity: .4; cursor: default }
+
+/* status */
+.lbar { width: 8px; align-self: stretch; border-radius: 4px; flex: none }
+.status .row small { white-space: normal }
+
+.toast { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 14px; font-weight: 600; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; white-space: nowrap }
+.toast.on { opacity: 1 }
+.loading { padding: 40px 18px; color: var(--muted); text-align: center }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hopline – London journey planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EDF2; --surface:#FFFFFF; --surface2:#F3F5F8; --ink:#13202E; --muted:#5E6B7A; --line:#D6DCE4;
+  --accent:#FFC93C; --accentInk:#13202E; --violet:#5B4BDB; --good:#1F9D6B; --warn:#D9822B; --bad:#D64545;
+  --map1:#DCE3EA; --map2:#C9D3DD; --park:#CFE5D3; --water:#BFD7EA;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151D; --surface:#18222D; --surface2:#1F2B38; --ink:#EAF0F6; --muted:#93A1B1; --line:#2A3846;
+    --accent:#FFC93C; --accentInk:#13202E; --violet:#8C80FF; --good:#3CC48D; --warn:#F0A04B; --bad:#F06C6C;
+    --map1:#1A2430; --map2:#243140; --park:#1E3328; --water:#1B3044;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151D; --surface:#18222D; --surface2:#1F2B38; --ink:#EAF0F6; --muted:#93A1B1; --line:#2A3846;
+  --violet:#8C80FF; --good:#3CC48D; --warn:#F0A04B; --bad:#F06C6C;
+  --map1:#1A2430; --map2:#243140; --park:#1E3328; --water:#1B3044; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.35;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible{outline:3px solid var(--violet);outline-offset:2px}
+.app{max-width:440px;margin:0 auto;height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden;background:var(--bg)}
+.screen{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.hidden{display:none!important}
+svg.i{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* bottom nav */
+.nav{display:flex;justify-content:space-around;background:var(--surface);border-top:1px solid var(--line);padding:8px 8px 10px}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;color:var(--muted);padding:4px 14px;border-radius:14px}
+.nav button[aria-current="page"]{color:var(--ink);font-weight:700}
+.nav button[aria-current="page"] svg{stroke:var(--violet)}
+
+/* home */
+.mapwrap{position:relative;height:300px}
+.mapwrap svg.map{position:absolute;inset:0;width:100%;height:100%}
+.youare{position:absolute;left:52%;top:48%;width:18px;height:18px;border-radius:50%;background:var(--violet);border:3px solid var(--surface);box-shadow:0 0 0 8px color-mix(in srgb,var(--violet) 22%,transparent)}
+.mapbtn{position:absolute;top:14px;width:42px;height:42px;border-radius:50%;background:var(--surface);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.sheet{position:relative;margin-top:-34px;background:var(--surface);border-radius:28px 28px 0 0;padding:22px 18px 24px;min-height:calc(100% - 266px)}
+.hello{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:0 0 14px;line-height:1.05}
+.searchbar{width:100%;display:flex;align-items:center;gap:12px;background:var(--accent);color:var(--accentInk);border-radius:18px;padding:16px 18px;font-size:18px;font-weight:600;text-align:left}
+.quick{display:flex;gap:10px;margin:14px 0 22px}
+.quick button{flex:1;display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:16px;padding:12px;text-align:left}
+.quick small{display:block;color:var(--muted);font-size:13px}
+.quick b{font-weight:700}
+h2{font-size:19px;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+.modes{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin:0 -18px 22px;padding-left:18px;padding-right:18px;scrollbar-width:none}
+.modes button{flex:none;display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:999px;padding:9px 14px;font-weight:600;font-size:15px}
+.modes button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.dep{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.dep:first-of-type{border-top:0}
+.dep .meta{flex:1;min-width:0}
+.dep .meta small{color:var(--muted);font-size:14px}
+.mins{text-align:right;font-weight:800;font-size:22px;line-height:1}
+.mins small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:24px;padding:0 8px;border-radius:7px;font-size:13px;font-weight:700;color:#fff;white-space:nowrap}
+.pill.bus{background:#E1251B}
+.badge{font-size:12px;font-weight:700;border-radius:6px;padding:2px 7px}
+.badge.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.badge.good{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+
+/* top bars */
+.topbar{display:flex;align-items:center;gap:10px;padding:14px 14px 10px;background:var(--bg);position:sticky;top:0;z-index:5}
+.iconbtn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--surface);flex:none}
+.title{font-size:22px;font-weight:800;letter-spacing:-.02em;flex:1}
+
+/* search */
+.fields{background:var(--surface);border-radius:20px;margin:0 14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:8px}
+.fields .stack{flex:1;position:relative}
+.fields .stack::before{content:"";position:absolute;left:5px;top:28px;bottom:28px;border-left:2px dotted var(--muted)}
+.field{display:flex;align-items:center;gap:12px;padding:6px 0}
+.dot{width:12px;height:12px;border-radius:50%;border:3px solid var(--violet);flex:none}
+.dot.end{border-radius:3px;border-color:var(--ink);background:var(--ink)}
+.field input{flex:1;min-width:0;border:0;background:var(--surface2);border-radius:12px;padding:12px;font:inherit;color:var(--ink)}
+.field input[data-active="true"]{box-shadow:inset 0 0 0 2px var(--violet)}
+.list{margin:14px 14px 30px;background:var(--surface);border-radius:20px;overflow:hidden}
+.row{width:100%;display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--line);text-align:left}
+.row:first-child{border-top:0}
+.row .meta{flex:1;min-width:0}
+.row small{color:var(--muted);font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ico{width:38px;height:38px;border-radius:12px;background:var(--surface2);display:grid;place-items:center;flex:none}
+.tabs{display:flex;gap:6px;margin:14px 14px 0}
+.tabs button{padding:8px 14px;border-radius:999px;font-weight:600;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink)}
+.empty{padding:22px 16px;color:var(--muted)}
+
+/* routes */
+.trip{background:var(--surface);border-radius:20px;margin:0 14px;padding:12px 12px 12px 16px;display:flex;align-items:center;gap:10px}
+.trip .meta{flex:1;min-width:0;font-weight:700}
+.trip .meta span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip .meta span+span{color:var(--muted);font-weight:500}
+.when{margin:10px 14px 0;display:flex;gap:8px}
+.when button{display:flex;align-items:center;gap:6px;font-weight:600;font-size:14px;background:var(--surface);border-radius:999px;padding:8px 12px}
+.sorts{display:flex;gap:8px;overflow-x:auto;padding:14px 14px 4px;scrollbar-width:none}
+.sorts button{flex:none;border-radius:999px;padding:8px 14px;font-weight:600;font-size:15px;border:1.5px solid var(--line)}
+.sorts button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accentInk)}
+.alts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 14px 4px}
+.alts button{background:var(--surface);border-radius:16px;padding:10px 12px;text-align:left}
+.alts b{display:block;font-size:20px;font-weight:800;margin-top:4px}
+.alts small{color:var(--muted);font-size:13px}
+.card{display:block;width:calc(100% - 28px);margin:10px 14px 0;background:var(--surface);border-radius:20px;padding:16px;text-align:left}
+.card .top{display:flex;align-items:baseline;gap:10px}
+.card .dur{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.card .dur small{font-size:15px;font-weight:600;margin-left:2px}
+.card .arr{color:var(--muted);flex:1}
+.card .fare{font-weight:700}
+.tag{display:inline-block;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--violet)}
+.strip{display:flex;gap:3px;height:12px;margin:14px 0 8px}
+.strip span{border-radius:6px;min-width:10px}
+.strip span.walk{background:repeating-linear-gradient(90deg,var(--muted) 0 4px,transparent 4px 8px);opacity:.6;height:4px;align-self:center}
+.legs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.legs .sep{opacity:.5}
+.next{margin-top:10px;font-size:14px;color:var(--muted)}
+.next b{color:var(--good)}
+.foot{color:var(--muted);font-size:13px;text-align:center;padding:18px 24px 28px}
+
+/* detail */
+.summary{margin:0 14px;background:var(--ink);color:var(--surface);border-radius:22px;padding:18px}
+.summary .dur{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.summary small{opacity:.75}
+.summary .strip span.walk{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 8px)}
+.tl{margin:14px 14px 0;background:var(--surface);border-radius:22px;padding:8px 16px}
+.step{display:grid;grid-template-columns:52px 22px 1fr;gap:0 10px;min-height:64px}
+.step .t{font-weight:700;font-size:15px;padding-top:12px;text-align:right}
+.step .rail{position:relative;display:flex;justify-content:center}
+.step .rail::before{content:"";position:absolute;top:0;bottom:0;width:6px;border-radius:3px;background:var(--c,var(--line))}
+.step .rail.walk::before{width:0;border-left:3px dotted var(--muted);background:none}
+.step .rail i{position:relative;margin-top:14px;width:16px;height:16px;border-radius:50%;background:var(--surface);border:4px solid var(--c,var(--ink))}
+.step .body{padding:10px 0 14px}
+.step .body b{display:block}
+.step .body small{color:var(--muted);font-size:14px}
+.go{position:sticky;bottom:0;padding:14px;background:linear-gradient(transparent,var(--bg) 30%)}
+.primary{width:100%;background:var(--accent);color:var(--accentInk);border-radius:18px;padding:16px;font-size:18px;font-weight:800}
+
+/* go mode */
+.gohead{margin:0 14px;padding:22px;border-radius:24px;color:#fff;background:var(--c,#333)}
+.gohead small{opacity:.85}
+.gohead .big{font-size:30px;font-weight:800;line-height:1.1;margin:6px 0 10px;letter-spacing:-.02em}
+.prog{height:6px;background:rgba(255,255,255,.3);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;background:#fff;border-radius:3px;transition:width .4s}
+.gonav{display:flex;gap:10px;margin:14px}
+.gonav button{flex:1;background:var(--surface);border-radius:16px;padding:14px;font-weight:700}
+.gonav button:disabled{opacity:.4}
+
+/* status */
+.status .row{cursor:default}
+.lbar{width:8px;align-self:stretch;border-radius:4px;flex:none}
+
+.toast{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:14px;font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <main class="screen" id="screen"></main>
+  <nav class="nav" id="nav" aria-label="Main">
+    <button data-tab="plan" aria-current="page"><svg class="i" viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></svg>Plan</button>
+    <button data-tab="saved"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Saved</button>
+    <button data-tab="status"><svg class="i" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Line status</button>
+  </nav>
+  <div class="toast" id="toast" role="status"></div>
+</div>
+
+<script>
+const I = {
+  walk:'<path d="M13 4a1.5 1.5 0 1 0 0 .01M10 21l2-6 2 2v4M9 11l2-3 3 1 2 3M11 8l-2 6"/>',
+  bus:'<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v3M16 18v3M8 14.5h.01M16 14.5h.01"/>',
+  tube:'<rect x="5" y="3" width="14" height="14" rx="4"/><path d="M5 10h14M8 21l2-4M16 21l-2-4"/>',
+  bike:'<circle cx="6" cy="17" r="3.5"/><circle cx="18" cy="17" r="3.5"/><path d="M6 17l4-8h5l3 8M10 9l2 8h6M14 6h3"/>',
+  cab:'<path d="M5 16l1.5-6h11L19 16M3 16h18v3H3zM9 10l1-3h4l1 3"/>',
+  rail:'<rect x="6" y="2" width="12" height="15" rx="3"/><path d="M6 9h12M9 21l1.5-4M15 21l-1.5-4"/>',
+  home:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  work:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4h6v3M3 13h18"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  back:'<path d="M15 5l-7 7 7 7"/>',
+  swap:'<path d="M7 4v16M3 8l4-4 4 4M17 20V4M21 16l-4 4-4-4"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/>',
+  locate:'<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
+  step:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>'
+};
+const ic = (n,extra='') => `<svg class="i" viewBox="0 0 24 24" ${extra}>${I[n]}</svg>`;
+
+const LINES = {
+  Metropolitan:'#9B0056', Jubilee:'#868F98', Bakerloo:'#B26300', Circle:'#E8B800', 'Hammersmith & City':'#E899A8',
+  Elizabeth:'#6950A1', Central:'#DC241F', Northern:'#2B2B2B', Piccadilly:'#0019A8', Victoria:'#0098D8', District:'#007D32', Chiltern:'#00A3E0', Bus:'#E1251B'
+};
+
+const SHORT={Metropolitan:'Met',Jubilee:'Jubilee','Hammersmith & City':'H&C',Bakerloo:'Bakerloo',Chiltern:'Chiltern',Elizabeth:'Eliz',Circle:'Circle'};
+const PLACES = [
+  {n:'Preston Road', d:'Underground station, Metropolitan', k:'tube'},
+  {n:'Great Portland Street', d:'Underground station, Circle, H&C, Metropolitan', k:'tube'},
+  {n:'University of Westminster', d:'309 Regent Street, London W1B 2HW', k:'pin'},
+  {n:'Wembley Park', d:'Underground station, Jubilee, Metropolitan', k:'tube'},
+  {n:'Baker Street', d:'Underground station, 5 lines', k:'tube'},
+  {n:'Oxford Circus', d:'Underground station, Bakerloo, Central, Victoria', k:'tube'},
+  {n:'Wembley Stadium', d:'Wembley, London HA9 0WS', k:'pin'},
+  {n:'King’s Cross St. Pancras', d:'Underground and rail station', k:'rail'},
+  {n:'Hammersmith', d:'Underground station', k:'tube'},
+  {n:'Bank', d:'Underground station', k:'tube'},
+  {n:'O2 Academy Brixton', d:'211 Stockwell Road, London SW9 9SL', k:'pin'},
+  {n:'Harrow-on-the-Hill', d:'Underground and rail station', k:'rail'},
+  {n:'Paddington', d:'Underground and rail station', k:'rail'},
+  {n:'Westfield London', d:'Ariel Way, London W12 7GF', k:'pin'}
+];
+
+// Sample routes (illustrative timings, not live data)
+function buildRoutes(from,to){
+  const base = [
+    {id:'r1', tag:'Fastest', mins:22, fare:3.40, mode:'tube', changes:0, stepFree:false, next:[2,9,16],
+      legs:[{t:'walk',m:3,label:'Walk to Preston Road',sub:'250 m'},
+            {t:'Metropolitan',m:17,label:'Metropolitan line',sub:'towards Aldgate · 6 stops',from:'Preston Road',to:'Great Portland Street',plat:'Platform 1'},
+            {t:'walk',m:2,label:'Walk to destination',sub:'Exit via Euston Road'}]},
+    {id:'r2', tag:'Fewer stairs', mins:34, fare:3.40, mode:'tube', changes:1, stepFree:true, next:[4,11,19],
+      legs:[{t:'walk',m:6,label:'Walk to Bus stop PR',sub:'400 m'},
+            {t:'Bus',m:9,label:'Bus 223',sub:'towards Wembley · 5 stops',from:'Preston Road Station',to:'Wembley Park',num:'223'},
+            {t:'Jubilee',m:14,label:'Jubilee line',sub:'towards Stratford · 4 stops',from:'Wembley Park',to:'Baker Street',plat:'Platform 3'},
+            {t:'Hammersmith & City',m:3,label:'Hammersmith & City line',sub:'towards Barking · 1 stop',from:'Baker Street',to:'Great Portland Street'},
+            {t:'walk',m:2,label:'Walk to destination',sub:'Step-free exit'}]},
+    {id:'r3', tag:'Cheapest', mins:71, fare:1.75, mode:'bus', changes:1, stepFree:true, next:[2,14,26],
+      legs:[{t:'walk',m:4,label:'Walk to stop PE',sub:'300 m'},
+            {t:'Bus',m:24,label:'Bus 79',sub:'towards Alperton · 12 stops',from:'Preston Road Station',to:'Kingsbury',num:'79'},
+            {t:'Bus',m:39,label:'Bus 18',sub:'towards Euston · 21 stops',from:'Harlesden',to:'Great Portland Street',num:'18'},
+            {t:'walk',m:4,label:'Walk to destination',sub:'280 m'}]},
+    {id:'r4', tag:'', mins:46, fare:5.15, mode:'rail', changes:2, stepFree:false, next:[6,18,30],
+      legs:[{t:'walk',m:3,label:'Walk to Preston Road',sub:'250 m'},
+            {t:'Metropolitan',m:7,label:'Metropolitan line',sub:'towards Uxbridge · 2 stops',from:'Preston Road',to:'Harrow-on-the-Hill'},
+            {t:'Chiltern',m:24,label:'Chiltern Railways',sub:'towards Marylebone',from:'Harrow-on-the-Hill',to:'Marylebone'},
+            {t:'Bakerloo',m:6,label:'Bakerloo line',sub:'towards Elephant & Castle · 1 stop',from:'Marylebone',to:'Baker Street'},
+            {t:'walk',m:6,label:'Walk to destination',sub:'Along Marylebone Road'}]}
+  ];
+  return base.map(r=>({...r,from,to}));
+}
+const ALTS = [{k:'walk',label:'Walk',mins:171,note:'Free · 708 cal'},{k:'bike',label:'Cycle',mins:68,note:'Free · 285 cal'},{k:'cab',label:'Cab',mins:33,note:'£20+'}];
+const STATUS = [
+  ['Bakerloo','good'],['Central','good'],['Circle','good'],['District','warn','Minor delays between Earl’s Court and Wimbledon'],
+  ['Elizabeth','good'],['Hammersmith & City','good'],['Jubilee','warn','Minor delays due to an earlier signal failure at Neasden'],
+  ['Metropolitan','good'],['Northern','good'],['Piccadilly','bad','Part closure: no service between Acton Town and Uxbridge'],['Victoria','good']
+];
+
+const store = {
+  get(k,d){try{const v=localStorage.getItem('hopline:'+k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem('hopline:'+k,JSON.stringify(v))}catch(e){}}
+};
+
+const S = {
+  tab:'plan', view:'home', from:'Current location', to:'', active:'to', q:'', listTab:'recent',
+  sort:'Best', when:0, mode:'all', route:null, goStep:0,
+  recents: store.get('recents',['Great Portland Street','Wembley Stadium','Oxford Circus']),
+  saved: store.get('saved',{home:'Preston Road',work:'University of Westminster',routes:[]})
+};
+const WHEN = ['Leave now','Leave at 08:30','Arrive by 09:00'];
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pill = l => l.t==='Bus' ? `<span class="pill bus">${esc(l.num)}</span>` : `<span class="pill" style="background:${LINES[l.t]||'#555'}">${esc(SHORT[l.t]||l.t.slice(0,3))}</span>`;
+function clock(addMin){const d=new Date(Date.now()+addMin*60000);return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1800)}
+function go(view){S.view=view;render();$('#screen').scrollTop=0}
+
+function strip(legs){
+  return `<div class="strip" aria-hidden="true">${legs.map(l=>`<span class="${l.t==='walk'?'walk':''}" style="flex:${l.m};${l.t!=='walk'?`background:${LINES[l.t]}`:''}"></span>`).join('')}</div>`;
+}
+function legsLine(legs){
+  return `<div class="legs">${legs.map(l=>l.t==='walk'?`${ic('walk','style="width:16px;height:16px"')}<span>${l.m}</span>`:pill(l)).join('<span class="sep">›</span>')}</div>`;
+}
+
+/* ---------- views ---------- */
+function vHome(){
+  const modes=[['all','All','step'],['tube','Tube','tube'],['bus','Bus','bus'],['rail','Rail','rail'],['bike','Cycle','bike'],['walk','Walk','walk'],['cab','Cab','cab']];
+  const h=new Date().getHours(); const greet=h>=5&&h<12?'Morning.':h>=12&&h<18?'Afternoon.':'Evening.';
+  return `
+  <div class="mapwrap">
+    <svg class="map" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <rect width="400" height="300" fill="var(--map1)"/>
+      <path d="M-10 230 C80 200 140 260 230 220 S360 180 420 210 L420 300 L-10 300Z" fill="var(--park)"/>
+      <path d="M260 -10 C250 60 300 90 290 160" stroke="var(--water)" stroke-width="14" fill="none"/>
+      <g stroke="var(--map2)" stroke-width="10" fill="none" stroke-linecap="round">
+        <path d="M-10 70 L420 110"/><path d="M60 -10 L150 310"/><path d="M-10 170 L420 140"/><path d="M330 -10 L250 310"/>
+      </g>
+      <g stroke="var(--surface)" stroke-width="3" fill="none" opacity=".7">
+        <path d="M-10 40 L180 60 L220 0"/><path d="M110 120 L210 150 L200 300"/><path d="M340 230 L420 260"/>
+      </g>
+      <path d="M-10 200 C90 180 150 150 208 144 S330 80 420 40" stroke="#9B0056" stroke-width="5" fill="none"/>
+      <circle cx="208" cy="144" r="7" fill="var(--surface)" stroke="#9B0056" stroke-width="4"/>
+    </svg>
+    <div class="youare" title="You are here"></div>
+    <button class="mapbtn" style="left:14px" id="theme" aria-label="Switch light or dark">${ic('sun')}</button>
+    <button class="mapbtn" style="right:14px" id="locate" aria-label="Centre on me">${ic('locate')}</button>
+  </div>
+  <section class="sheet">
+    <h1 class="hello">${greet}<br>Where to?</h1>
+    <button class="searchbar" id="openSearch">${ic('search')}Search a place or postcode</button>
+    <div class="quick">
+      <button data-goto="home">${ic('home')}<span><b>Home</b><small>${esc(S.saved.home)}</small></span></button>
+      <button data-goto="work">${ic('work')}<span><b>Work</b><small>${esc(S.saved.work)}</small></span></button>
+    </div>
+    <h2>Travel by</h2>
+    <div class="modes">${modes.map(([k,l,i])=>`<button data-mode="${k}" aria-pressed="${S.mode===k}">${ic(i)}${l}</button>`).join('')}</div>
+    <h2>Leaving nearby</h2>
+    <div>
+      ${[[{t:'Metropolitan'},'Preston Road','towards Aldgate',[2,9]],[{t:'Metropolitan'},'Preston Road','towards Uxbridge',[5,13]],[{t:'Bus',num:'223'},'Preston Road Station','towards Wembley',[4,24]],[{t:'Bus',num:'79'},'Preston Road Station','towards Alperton',[7,19]]]
+        .map(([l,stop,dir,m])=>`<div class="dep">${pill(l)}<div class="meta"><b>${esc(dir)}</b><br><small>${esc(stop)} · then ${m[1]} min</small></div><div class="mins">${m[0]}<small>min</small></div></div>`).join('')}
+    </div>
+  </section>`;
+}
+
+function vSearch(){
+  const q=S.q.trim().toLowerCase();
+  let items;
+  if(q){ items=PLACES.filter(p=>(p.n+' '+p.d).toLowerCase().includes(q)); }
+  else if(S.listTab==='recent'){ items=S.recents.map(n=>PLACES.find(p=>p.n===n)||{n,d:'Recent',k:'clock'}).map(p=>({...p,k:'clock'})); }
+  else { items=[{n:S.saved.home,d:'Home',k:'home'},{n:S.saved.work,d:'Work',k:'work'}]; }
+  const rows = items.length ? items.map(p=>`<button class="row" data-pick="${esc(p.n)}"><span class="ico">${ic(p.k)}</span><span class="meta"><b>${esc(p.n)}</b><small>${esc(p.d)}</small></span></button>`).join('')
+    : `<div class="empty">No places match “${esc(S.q)}”. Try a station name or postcode.</div>`;
+  return `
+  <div class="topbar"><button class="iconbtn" data-back="home" aria-label="Back">${ic('back')}</button><div class="title">Plan a journey</div></div>
+  <div class="fields">
+    <div class="stack">
+      <label class="field"><span class="dot"></span><input id="fFrom" placeholder="Start" value="${esc(S.from)}" data-active="${S.active==='from'}" autocomplete="off"></label>
+      <label class="field"><span class="dot end"></span><input id="fTo" placeholder="Destination" value="${esc(S.to)}" data-active="${S.active==='to'}" autocomplete="off"></label>
+    </div>
+    <button class="iconbtn" id="swap" aria-label="Swap start and destination" style="background:var(--surface2)">${ic('swap')}</button>
+  </div>
+  ${q?'':`<div class="tabs" role="tablist"><button role="tab" data-lt="recent" aria-selected="${S.listTab==='recent'}">Recent</button><button role="tab" data-lt="saved" aria-selected="${S.listTab==='saved'}">Home &amp; work</button></div>`}
+  <div class="list">
+    ${S.active==='from'&&!q?`<button class="row" data-pick="Current location"><span class="ico" style="color:var(--violet)">${ic('locate')}</span><span class="meta"><b>Current location</b><small>Near Preston Road</small></span></button>`:''}
+    ${rows}
+  </div>`;
+}
+
+function sorted(routes){
+  const r=[...routes];
+  if(S.sort==='Cheapest') r.sort((a,b)=>a.fare-b.fare||a.mins-b.mins);
+  else if(S.sort==='Fewest changes') r.sort((a,b)=>a.changes-b.changes||a.mins-b.mins);
+  else if(S.sort==='Step-free') return r.filter(x=>x.stepFree).sort((a,b)=>a.mins-b.mins);
+  else if(S.sort==='Bus only') return r.filter(x=>x.legs.every(l=>l.t==='walk'||l.t==='Bus'));
+  else r.sort((a,b)=>a.mins-b.mins);
+  return r;
+}
+function vRoutes(){
+  const routes=sorted(buildRoutes(S.from,S.to));
+  const offset = S.when===0?0:S.when===1?30:0;
+  const cards = routes.map(r=>`
+    <button class="card" data-route="${r.id}">
+      ${r.tag?`<span class="tag">${r.tag}</span>`:''}
+      <div class="top"><span class="dur">${r.mins}<small>min</small></span><span class="arr">arrive ${clock(r.mins+r.next[0]+offset)}</span><span class="fare">£${r.fare.toFixed(2)}</span></div>
+      ${strip(r.legs)}${legsLine(r.legs)}
+      <div class="next">Next in <b>${r.next[0]} min</b>, then ${r.next[1]} and ${r.next[2]}</div>
+    </button>`).join('') || `<div class="empty" style="margin:0 14px">No routes match this filter. Pick another option above.</div>`;
+  return `
+  <div class="topbar"><button class="iconbtn" data-back="search" aria-label="Back">${ic('back')}</button><div class="title">Routes</div></div>
+  <div class="trip"><div class="meta"><span>${esc(S.from)}</span><span>to ${esc(S.to)}</span></div>
+    <button class="iconbtn" id="swap2" aria-label="Swap" style="background:var(--surface2)">${ic('swap')}</button></div>
+  <div class="when"><button id="when">${ic('clock','style="width:16px;height:16px"')}${WHEN[S.when]}</button>
+    <button id="saveTrip">${ic('star','style="width:16px;height:16px"')}Save trip</button></div>
+  <div class="alts">${ALTS.map(a=>`<button data-alt="${a.k}">${ic(a.k)}<b>${a.mins}<small> min</small></b><small>${a.note}</small></button>`).join('')}</div>
+  <div class="sorts">${['Best','Cheapest','Fewest changes','Step-free','Bus only'].map(s=>`<button data-sort="${s}" aria-pressed="${S.sort===s}">${s}</button>`).join('')}</div>
+  ${cards}
+  <p class="foot">Times and fares are sample data for this prototype.</p>`;
+}
+
+function vDetail(){
+  const r=buildRoutes(S.from,S.to).find(x=>x.id===S.route);
+  let t=r.next[0]; let html='';
+  r.legs.forEach((l,i)=>{
+    const c=l.t==='walk'?'':`--c:${LINES[l.t]}`;
+    html+=`<div class="step" style="${c}"><div class="t">${clock(t)}</div><div class="rail ${l.t==='walk'?'walk':''}"><i></i></div>
+      <div class="body">${l.t==='walk'?`<b>${esc(l.label)}</b><small>${l.m} min · ${esc(l.sub)}</small>`:
+        `<b>${pill(l)} ${esc(l.from)}</b><small>${esc(l.label)} ${esc(l.sub)}${l.plat?' · '+l.plat:''}</small><br><small>Ride ${l.m} min to <b style="display:inline;color:var(--ink)">${esc(l.to)}</b></small>`}</div></div>`;
+    t+=l.m;
+  });
+  html+=`<div class="step"><div class="t">${clock(t)}</div><div class="rail" style="--c:var(--ink)"><i style="border-radius:4px;background:var(--ink)"></i></div><div class="body"><b>${esc(S.to)}</b><small>You’ve arrived</small></div></div>`;
+  return `
+  <div class="topbar"><button class="iconbtn" data-back="routes" aria-label="Back">${ic('back')}</button><div class="title">Your route</div></div>
+  <div class="summary"><div style="display:flex;align-items:baseline;gap:10px"><span class="dur">${r.mins} min</span><span style="flex:1"></span><b>£${r.fare.toFixed(2)}</b></div>
+    <small>Leave in ${r.next[0]} min, arrive ${clock(r.mins+r.next[0])} · ${r.changes===0?'no changes':r.changes+' change'+(r.changes>1?'s':'')}</small>
+    ${strip(r.legs)}</div>
+  <div class="tl">${html}</div>
+  <div class="go"><button class="primary" id="startGo">Start journey</button></div>`;
+}
+
+function vGo(){
+  const r=buildRoutes(S.from,S.to).find(x=>x.id===S.route);
+  const l=r.legs[S.goStep]; const n=r.legs.length;
+  const c=l.t==='walk'?'var(--violet)':LINES[l.t];
+  const big = l.t==='walk' ? l.label : `Ride the ${l.label} to ${l.to}`;
+  const tip = l.t==='walk' ? l.sub : `${l.sub}${l.plat?' · '+l.plat:''}. Board at ${l.from}.`;
+  return `
+  <div class="topbar"><button class="iconbtn" data-back="detail" aria-label="End journey">${ic('back')}</button><div class="title">On the way</div></div>
+  <div class="gohead" style="--c:${c}"><small>Step ${S.goStep+1} of ${n} · about ${l.m} min</small>
+    <div class="big">${esc(big)}</div><div class="prog"><i style="width:${((S.goStep+1)/n)*100}%"></i></div></div>
+  <div class="list" style="margin-top:14px"><div class="row" style="cursor:default"><span class="ico">${ic(l.t==='walk'?'walk':l.t==='Bus'?'bus':'tube')}</span><span class="meta"><b>${esc(tip)}</b><small>${S.goStep<n-1?'Next: '+esc(r.legs[S.goStep+1].label):'Last step'}</small></span></div></div>
+  <div class="gonav"><button id="prevStep" ${S.goStep===0?'disabled':''}>Previous</button>
+    <button id="nextStep" style="background:var(--accent);color:var(--accentInk)">${S.goStep===n-1?'I’ve arrived':'Next step'}</button></div>`;
+}
+
+function vSaved(){
+  const routes=S.saved.routes;
+  return `<div class="topbar"><div class="title">Saved</div></div>
+  <div class="list" style="margin-top:4px">
+    <button class="row" data-goto="home"><span class="ico">${ic('home')}</span><span class="meta"><b>Home</b><small>${esc(S.saved.home)}</small></span></button>
+    <button class="row" data-goto="work"><span class="ico">${ic('work')}</span><span class="meta"><b>Work</b><small>${esc(S.saved.work)}</small></span></button>
+  </div>
+  <h2 style="margin:4px 18px 0">Saved trips</h2>
+  <div class="list">${routes.length?routes.map((t,i)=>`<button class="row" data-trip="${i}"><span class="ico">${ic('star')}</span><span class="meta"><b>${esc(t.to)}</b><small>from ${esc(t.from)}</small></span></button>`).join(''):
+    `<div class="empty">Trips you save from the routes screen appear here, one tap away.</div>`}</div>`;
+}
+
+function vStatus(){
+  const label={good:'Good service',warn:'Minor delays',bad:'Part closure'};
+  return `<div class="topbar"><div class="title">Line status</div></div>
+  <div class="list status" style="margin-top:4px">${STATUS.map(([n,s,msg])=>`
+    <div class="row"><span class="lbar" style="background:${LINES[n]}"></span><span class="meta"><b>${esc(n)}</b>${msg?`<small style="white-space:normal">${esc(msg)}</small>`:''}</span><span class="badge ${s==='good'?'good':'warn'}" ${s==='bad'?'style="color:var(--bad);background:color-mix(in srgb,var(--bad) 18%,transparent)"':''}>${label[s]}</span></div>`).join('')}</div>
+  <p class="foot">Sample statuses for this prototype.</p>`;
+}
+
+/* ---------- render + events ---------- */
+function render(){
+  const v = S.tab==='saved'?vSaved(): S.tab==='status'?vStatus():
+    ({home:vHome,search:vSearch,routes:vRoutes,detail:vDetail,go:vGo})[S.view]();
+  $('#screen').innerHTML=v;
+  document.querySelectorAll('.nav button').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===S.tab?'page':'false'));
+  $('#nav').classList.toggle('hidden', S.tab==='plan' && S.view==='go');
+  if(S.tab==='plan'&&S.view==='search'){
+    const inp=$(S.active==='from'?'#fFrom':'#fTo'); inp.focus(); const len=inp.value.length; inp.setSelectionRange(len,len);
+  }
+}
+function plan(){
+  if(!S.to){S.active='to';go('search');return}
+  if(S.from===S.to){toast('Start and destination are the same');return}
+  S.recents=[S.to,...S.recents.filter(x=>x!==S.to)].slice(0,6); store.set('recents',S.recents);
+  S.sort='Best'; go('routes');
+}
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const d=b.dataset;
+  if(d.tab){S.tab=d.tab; if(d.tab==='plan'&&S.view==='go')S.view='detail'; render(); return}
+  if(d.back){S.q=''; go(d.back); return}
+  if(b.id==='openSearch'){S.active='to';S.q='';go('search');return}
+  if(b.id==='theme'){const r=document.documentElement;const dark=getComputedStyle(r).colorScheme==='dark';r.dataset.theme=dark?'light':'dark';return}
+  if(b.id==='locate'){toast('Showing your location');return}
+  if(d.goto){S.tab='plan';S.from='Current location';S.to=S.saved[d.goto];plan();return}
+  if(d.mode){S.mode=d.mode; if(['walk','bike','cab'].includes(d.mode)) toast('Showing '+b.textContent.trim().toLowerCase()+' first in results'); render(); return}
+  if(d.lt){S.listTab=d.lt;render();return}
+  if(b.id==='swap'||b.id==='swap2'){
+    if(S.to||S.from){[S.from,S.to]=[S.to||'',S.from==='Current location'?'Preston Road':S.from];}
+    if(b.id==='swap2') render(); else {S.q='';render();} return}
+  if(d.pick!==undefined){
+    if(S.active==='from'){S.from=d.pick;S.q='';if(!S.to){S.active='to';render();return}}
+    else S.to=d.pick;
+    S.q=''; plan(); return}
+  if(d.sort){S.sort=d.sort;render();return}
+  if(b.id==='when'){S.when=(S.when+1)%WHEN.length;render();return}
+  if(b.id==='saveTrip'){
+    if(!S.saved.routes.some(t=>t.from===S.from&&t.to===S.to)){S.saved.routes.unshift({from:S.from,to:S.to});store.set('saved',S.saved);toast('Trip saved')}
+    else toast('Already saved'); return}
+  if(d.alt){const a=ALTS.find(x=>x.k===d.alt);toast(`${a.label}: about ${a.mins} min, ${a.note.split(' · ')[0]}`);return}
+  if(d.route){S.route=d.route;go('detail');return}
+  if(b.id==='startGo'){S.goStep=0;go('go');return}
+  if(b.id==='prevStep'){S.goStep--;render();return}
+  if(b.id==='nextStep'){
+    const r=buildRoutes(S.from,S.to).find(x=>x.id===S.route);
+    if(S.goStep>=r.legs.length-1){toast('You’ve arrived');S.view='home';S.to='';render();return}
+    S.goStep++;render();return}
+  if(d.trip!==undefined){const t=S.saved.routes[+d.trip];S.tab='plan';S.from=t.from;S.to=t.to;plan();return}
+});
+document.addEventListener('focusin',e=>{
+  if(e.target.id==='fFrom'||e.target.id==='fTo'){
+    const k=e.target.id==='fFrom'?'from':'to';
+    if(S.active!==k){S.active=k;S.q='';document.querySelectorAll('.field input').forEach(i=>i.dataset.active=String(i===e.target));
+      e.target.select();}
+  }
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='fFrom'||e.target.id==='fTo'){
+    S[e.target.id==='fFrom'?'from':'to']=e.target.value; S.q=e.target.value;
+    const pos=e.target.selectionStart; render();
+    const inp=$(e.target.id==='fFrom'?'#fFrom':'#fTo'); inp.setSelectionRange(pos,pos);
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&(e.target.id==='fFrom'||e.target.id==='fTo')){const first=document.querySelector('[data-pick]');if(first)first.click();}
+});
+render();
+</script>
+</body>
+</html>

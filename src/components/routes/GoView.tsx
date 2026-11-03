@@ -7,6 +7,7 @@ import { useToast } from "@/components/Toast";
 import { TopBar } from "@/components/TopBar";
 import { journeyQuery } from "@/lib/journey";
 import { getLineInfo } from "@/lib/transport/lines";
+import { stopsLabel } from "@/lib/transport/stops";
 import type { Route } from "@/lib/transport/types";
 
 // Walking steps use the light-mode violet in both themes so white text keeps 4.5:1 contrast.
@@ -16,6 +17,7 @@ export function GoView({ route }: { route: Route }) {
   const router = useRouter();
   const toast = useToast();
   const [step, setStep] = useState(0);
+  const [passed, setPassed] = useState(0);
   const legs = route.legs;
   const leg = legs[step];
   const last = step === legs.length - 1;
@@ -29,13 +31,29 @@ export function GoView({ route }: { route: Route }) {
     "--ct": line?.textColour ?? "#FFFFFF",
   } as React.CSSProperties;
 
+  // Stops passed so far in the current ride leg; reset whenever the step changes.
+  const stops = leg.type === "ride" ? leg.stops : [];
+  const upcoming = stops.slice(passed);
+  const nextStop = upcoming[0];
+  const stopLine =
+    leg.type !== "ride" || stops.length === 0
+      ? null
+      : nextStop
+        ? `Next: ${nextStop}. ${stopsLabel(upcoming.length)} until ${leg.to}`
+        : `Next: ${leg.to}. Get off there`;
+
+  function goTo(n: number) {
+    setStep(n);
+    setPassed(0);
+  }
+
   function next() {
     if (last) {
       toast("You’ve arrived");
       router.push("/");
       return;
     }
-    setStep(step + 1);
+    goTo(step + 1);
   }
 
   return (
@@ -57,12 +75,24 @@ export function GoView({ route }: { route: Route }) {
           </span>
           <span className="meta">
             <b>{tip}</b>
-            <small>{last ? "Last step" : `Next: ${legs[step + 1].label}`}</small>
+            {stopLine && (
+              <small className="stopline" aria-live="polite">
+                {stopLine}
+              </small>
+            )}
+            <small>{last ? "Last step" : `Then: ${legs[step + 1].label}`}</small>
           </span>
         </div>
       </div>
+      {nextStop && (
+        <div className="gonav">
+          <button type="button" onClick={() => setPassed(passed + 1)}>
+            Passed {nextStop}
+          </button>
+        </div>
+      )}
       <div className="gonav">
-        <button type="button" disabled={step === 0} onClick={() => setStep(step - 1)}>
+        <button type="button" disabled={step === 0} onClick={() => goTo(step - 1)}>
           Previous
         </button>
         <button type="button" className="accent" onClick={next}>

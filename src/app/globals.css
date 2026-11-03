@@ -157,6 +157,13 @@ h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em
 .step .body > b { display: flex; align-items: center; gap: 6px }
 .step .body small { color: var(--muted); font-size: 14px }
 .step .body small b { color: var(--ink) }
+.legstops { margin-top: 4px }
+.legstops-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px; margin-left: -12px; border-radius: 999px; font-size: 14px; font-weight: 600 }
+.legstops-btn .i { transition: transform .2s }
+.legstops-btn[aria-expanded="true"] .i { transform: rotate(180deg) }
+.legstops ol { margin: 0 0 4px; padding: 0; list-style: none; font-size: 14px }
+.legstops li { display: flex; align-items: center; gap: 10px; padding: 5px 0; color: var(--muted) }
+.legstops li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--muted)) }
 .go { position: sticky; bottom: 0; padding: 14px; background: linear-gradient(transparent, var(--bg) 30%) }
 .primary { display: block; width: 100%; background: var(--accent); color: var(--accentInk); border-radius: 18px; padding: 16px; font-size: 18px; font-weight: 800; text-align: center }
 
@@ -166,6 +173,7 @@ h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em
 .gohead .big { font-size: 30px; font-weight: 800; line-height: 1.1; margin: 6px 0 10px; letter-spacing: -.02em }
 .prog { height: 6px; background: color-mix(in srgb, currentColor 30%, transparent); border-radius: 3px; overflow: hidden }
 .prog i { display: block; height: 100%; background: currentColor; border-radius: 3px; transition: width .4s }
+.row small.stopline { white-space: normal; color: var(--ink); font-weight: 600 }
 .gonav { display: flex; gap: 10px; margin: 14px }
 .gonav button { flex: 1; background: var(--surface); border-radius: 16px; padding: 14px; font-weight: 700 }
 .gonav button.accent { background: var(--accent); color: var(--accentInk) }

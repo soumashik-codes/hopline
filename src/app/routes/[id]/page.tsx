@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ClockTime } from "@/components/ClockTime";
 import { LinePill } from "@/components/LinePill";
 import { RouteStrip } from "@/components/RouteStrip";
+import { LegStops } from "@/components/routes/LegStops";
 import { TopBar } from "@/components/TopBar";
 import { CURRENT_LOCATION, firstParam, journeyQuery, routesHref } from "@/lib/journey";
 import { getRoute } from "@/lib/transport";
@@ -81,6 +82,7 @@ export default async function RouteDetailPage({
                     <small>
                       Ride {leg.mins} min to <b>{leg.to}</b>
                     </small>
+                    <LegStops stops={leg.stops} from={leg.from} to={leg.to} />
                   </>
                 )}
               </div>

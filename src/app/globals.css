@@ -79,6 +79,7 @@ h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em
 .badge.warn { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warnInk) }
 .badge.good { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--goodInk) }
 .badge.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--badInk) }
+.badge.neutral { background: var(--surface2); color: var(--ink) }
 
 /* top bars */
 .topbar { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; background: var(--bg); position: sticky; top: 0; z-index: 5 }
@@ -182,6 +183,12 @@ h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em
 /* status */
 .lbar { width: 8px; align-self: stretch; border-radius: 4px; flex: none }
 .status .row small { white-space: normal }
+.status .meta { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; row-gap: 4px; align-items: center }
+.status .meta small { grid-column: 1 / -1 }
+@media (max-width: 480px) {
+  .status .meta { grid-template-columns: 1fr }
+  .status .meta .badge { justify-self: start }
+}
 
 .toast { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 14px; font-weight: 600; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; white-space: nowrap }
 .toast.on { opacity: 1 }

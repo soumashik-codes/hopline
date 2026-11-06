@@ -69,13 +69,26 @@ export interface Departure {
   mins: [number, number];
 }
 
-export type ServiceLevel = "good" | "minor" | "closure";
+export type ServiceLevel = "good" | "minor" | "severe" | "closure" | "unknown";
 
 export interface LineStatus {
   line: string;
   level: ServiceLevel;
+  /** Wording shown to users, e.g. "Good service". Live data uses TfL's own wording. */
+  statusLabel: string;
+  /** Why the line is disrupted, when the data source says. */
   message?: string;
 }
+
+export type LineStatusResult =
+  | {
+      ok: true;
+      source: "live" | "sample";
+      /** ISO time the data was produced. Absent when the source doesn't say. */
+      updatedAt?: string;
+      statuses: LineStatus[];
+    }
+  | { ok: false; reason: "not-configured" | "unavailable" };
 
 export interface JourneyQuery {
   from: string;
@@ -87,6 +100,6 @@ export interface TransportProvider {
   searchPlaces(query: string): Promise<Place[]>;
   getRoutes(query: JourneyQuery): Promise<Route[]>;
   getAlternatives(query: JourneyQuery): Promise<Alternative[]>;
-  getLineStatus(): Promise<LineStatus[]>;
+  getLineStatus(): Promise<LineStatusResult>;
   getNearbyDepartures(): Promise<Departure[]>;
 }

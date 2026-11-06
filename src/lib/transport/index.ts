@@ -1,10 +1,11 @@
 import "server-only";
 
 import { sampleProvider } from "./sample-provider";
+import { tflProvider } from "./tfl-provider";
 import type { JourneyQuery, Route, TransportProvider } from "./types";
 
-// The active data source. Swap this for a TfL (or other city) provider later.
-const provider: TransportProvider = sampleProvider;
+// The active data source. Line status is live from TfL; everything else is still sample data.
+const provider: TransportProvider = { ...sampleProvider, ...tflProvider };
 
 export function searchPlaces(query: string) {
   return provider.searchPlaces(query);

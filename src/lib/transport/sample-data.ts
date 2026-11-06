@@ -65,17 +65,17 @@ export const ALTERNATIVES: Alternative[] = [
 ];
 
 export const LINE_STATUS: LineStatus[] = [
-  { line: "Bakerloo", level: "good" },
-  { line: "Central", level: "good" },
-  { line: "Circle", level: "good" },
-  { line: "District", level: "minor", message: "Minor delays between Earl’s Court and Wimbledon" },
-  { line: "Elizabeth", level: "good" },
-  { line: "Hammersmith & City", level: "good" },
-  { line: "Jubilee", level: "minor", message: "Minor delays due to an earlier signal failure at Neasden" },
-  { line: "Metropolitan", level: "good" },
-  { line: "Northern", level: "good" },
-  { line: "Piccadilly", level: "closure", message: "Part closure: no service between Acton Town and Uxbridge" },
-  { line: "Victoria", level: "good" },
+  { line: "Bakerloo", level: "good", statusLabel: "Good service" },
+  { line: "Central", level: "good", statusLabel: "Good service" },
+  { line: "Circle", level: "good", statusLabel: "Good service" },
+  { line: "District", level: "minor", statusLabel: "Minor delays", message: "Minor delays between Earl’s Court and Wimbledon" },
+  { line: "Elizabeth", level: "good", statusLabel: "Good service" },
+  { line: "Hammersmith & City", level: "good", statusLabel: "Good service" },
+  { line: "Jubilee", level: "minor", statusLabel: "Minor delays", message: "Minor delays due to an earlier signal failure at Neasden" },
+  { line: "Metropolitan", level: "good", statusLabel: "Good service" },
+  { line: "Northern", level: "good", statusLabel: "Good service" },
+  { line: "Piccadilly", level: "closure", statusLabel: "Part closure", message: "Part closure: no service between Acton Town and Uxbridge" },
+  { line: "Victoria", level: "good", statusLabel: "Good service" },
 ];
 
 export const NEARBY_DEPARTURES: Departure[] = [

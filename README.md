@@ -2,7 +2,7 @@
 
 An accessible journey planner for London. An early-stage project exploring how journey planning could work better for disabled travellers.
 
-> **Status:** early prototype running on sample data. Live TfL data is being connected.
+> **Status:** early prototype. Line status uses live TfL data; search, routes and nearby departures still use sample data.
 
 ## Why I'm building this
 

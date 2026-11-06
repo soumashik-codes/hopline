@@ -17,3 +17,6 @@ The code is public so it can be viewed, but all rights are kept while I decide w
 
 ## Research before building more features
 Existing apps like TfL Go already offer step-free routes and live lift status, so Hopline only adds value if it solves problems they don't. Before building further features, I'm speaking to disabled travellers to find out where current apps let them down.
+
+## Live line status: cached for 60 seconds, never replaced by sample data
+Line status is the first live TfL feature. Responses are cached for 60 seconds so the app does not call TfL on every page load, and failed responses are not cached. The "Updated at" time is the time TfL produced the data, not the time the page loaded. If TfL fails or the key is missing, the page says so plainly instead of showing sample data, because old or made-up statuses presented as live could send someone down a closed line.

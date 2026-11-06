@@ -15,7 +15,7 @@ export const sampleProvider: TransportProvider = {
     return ALTERNATIVES;
   },
   async getLineStatus() {
-    return LINE_STATUS;
+    return { ok: true, source: "sample", statuses: LINE_STATUS };
   },
   async getNearbyDepartures() {
     return NEARBY_DEPARTURES;

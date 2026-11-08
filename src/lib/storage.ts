@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { isPlace } from "@/lib/places";
+import type { Place } from "@/lib/transport/types";
 
 // Per-browser storage for recents and saved places/trips. Values are prefixed "hopline:".
 
@@ -55,23 +57,46 @@ export interface SavedTrip {
 }
 
 export interface SavedPlaces {
-  home: string;
-  work: string;
+  /** The full place the user chose, not just its name. Null until they set it. */
+  home: Place | null;
+  work: Place | null;
   routes: SavedTrip[];
 }
 
-export const DEFAULT_SAVED: SavedPlaces = {
-  home: "Preston Road",
-  work: "University of Westminster",
-  routes: [],
-};
+const EMPTY_SAVED: SavedPlaces = { home: null, work: null, routes: [] };
 
-export const DEFAULT_RECENTS: string[] = ["Great Portland Street", "Wembley Stadium", "Oxford Circus"];
+const MAX_RECENTS = 6;
 
-export function useSaved() {
-  return useStored<SavedPlaces>("saved", DEFAULT_SAVED);
+function isTrip(value: unknown): value is SavedTrip {
+  const t = value as Record<string, unknown> | null;
+  return typeof t?.from === "string" && typeof t.to === "string";
 }
 
-export function useRecents() {
-  return useStored<string[]>("recents", DEFAULT_RECENTS);
+/** Earlier versions stored Home and Work as plain names. Those have no coordinates, so they are dropped, not guessed. */
+function readSaved(raw: unknown): SavedPlaces {
+  const r = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+  return {
+    home: isPlace(r.home) ? r.home : null,
+    work: isPlace(r.work) ? r.work : null,
+    routes: Array.isArray(r.routes) ? r.routes.filter(isTrip) : [],
+  };
+}
+
+export function useSaved(): [SavedPlaces, (value: SavedPlaces) => void] {
+  const [raw, setRaw] = useStored<unknown>("saved", EMPTY_SAVED);
+  const saved = useMemo(() => readSaved(raw), [raw]);
+  return [saved, setRaw];
+}
+
+const NO_RECENTS: unknown[] = [];
+
+/** Places the user has picked as a destination, newest first. Only places they chose are ever stored. */
+export function useRecents(): [Place[], (place: Place) => void] {
+  const [raw, setRaw] = useStored<unknown[]>("recents", NO_RECENTS);
+  const recents = useMemo(() => (Array.isArray(raw) ? raw.filter(isPlace) : []), [raw]);
+  const add = useCallback(
+    (place: Place) => setRaw([place, ...recents.filter((p) => p.id !== place.id)].slice(0, MAX_RECENTS)),
+    [recents, setRaw],
+  );
+  return [recents, add];
 }

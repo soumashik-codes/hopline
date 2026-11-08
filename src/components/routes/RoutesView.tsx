@@ -9,7 +9,7 @@ import { LegsList, RouteStrip } from "@/components/RouteStrip";
 import { useToast } from "@/components/Toast";
 import { TopBar } from "@/components/TopBar";
 import { CURRENT_LOCATION, journeyQuery, routesHref } from "@/lib/journey";
-import { useRecents, useSaved } from "@/lib/storage";
+import { useSaved } from "@/lib/storage";
 import type { Alternative, Route } from "@/lib/transport/types";
 
 const SORTS = ["Best", "Cheapest", "Fewest changes", "Step-free", "Bus only"] as const;
@@ -30,15 +30,9 @@ export function RoutesView({ from, to, routes, alternatives }: { from: string; t
   const router = useRouter();
   const toast = useToast();
   const [saved, setSaved] = useSaved();
-  const [recents, setRecents] = useRecents();
   const [sort, setSort] = useState<Sort>("Best");
   const [when, setWhen] = useState(0);
   const [announcement, setAnnouncement] = useState("");
-
-  // Remember the destination, like the prototype's plan().
-  useEffect(() => {
-    if (recents[0] !== to) setRecents([to, ...recents.filter((x) => x !== to)].slice(0, 6));
-  }, [to, recents, setRecents]);
 
   const shown = sortRoutes(routes, sort);
   const offset = when === 1 ? 30 : 0;
@@ -56,9 +50,12 @@ export function RoutesView({ from, to, routes, alternatives }: { from: string; t
   }
 
   function swap() {
-    const nextFrom = to || "";
-    const nextTo = from === CURRENT_LOCATION ? "Preston Road" : from;
-    router.replace(routesHref(nextFrom, nextTo));
+    // "Current location" can't be a destination, so ask the user where they want to go from the new start.
+    if (from === CURRENT_LOCATION) {
+      router.push(`/search?${new URLSearchParams({ from: to, to: "", field: "to" })}`);
+      return;
+    }
+    router.replace(routesHref(to, from));
   }
 
   function saveTrip() {

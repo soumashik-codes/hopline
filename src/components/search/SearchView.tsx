@@ -1,21 +1,26 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Icon, type IconName } from "@/components/Icon";
+import { PlaceItem } from "@/components/search/PlaceItem";
+import { usePlaceSearch } from "@/components/search/usePlaceSearch";
 import { useToast } from "@/components/Toast";
 import { TopBar } from "@/components/TopBar";
 import { CURRENT_LOCATION, routesHref } from "@/lib/journey";
+import { MIN_QUERY_LENGTH } from "@/lib/places";
 import { useRecents, useSaved } from "@/lib/storage";
-import type { Place } from "@/lib/transport/types";
+import type { Place, PlaceSearchSource } from "@/lib/transport/types";
 
 type Field = "from" | "to";
 type ListTab = "recent" | "saved";
+export type SavedSlot = "home" | "work";
 
-interface Item {
-  name: string;
-  description: string;
+interface ListedPlace {
+  place: Place;
   icon: IconName;
+  label: string;
 }
 
 const LIST_TABS: { id: ListTab; label: string }[] = [
@@ -23,60 +28,63 @@ const LIST_TABS: { id: ListTab; label: string }[] = [
   { id: "saved", label: "Home & work" },
 ];
 
-export function SearchView({ initialFrom, initialTo, initialField }: { initialFrom: string; initialTo: string; initialField: Field }) {
+const SLOT_LABEL: Record<SavedSlot, string> = { home: "Home", work: "Work" };
+
+const FAILED_LABEL: Record<PlaceSearchSource, string> = {
+  stations: "stations and stops",
+  postcodes: "postcodes",
+  addresses: "addresses and places",
+};
+
+const RESULTS_ID = "place-results";
+
+function failedMessage(failed: PlaceSearchSource[]): string {
+  const names = failed.map((f) => FAILED_LABEL[f]);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+  return `Couldn’t search ${list} just now, so some results may be missing.`;
+}
+
+interface SearchViewProps {
+  initialFrom: string;
+  initialTo: string;
+  initialField: Field;
+  /** When set, the screen picks the user's Home or Work instead of planning a journey. */
+  setting?: SavedSlot;
+}
+
+export function SearchView({ initialFrom, initialTo, initialField, setting }: SearchViewProps) {
   const router = useRouter();
   const toast = useToast();
-  const [recents] = useRecents();
-  const [saved] = useSaved();
+  const [recents, addRecent] = useRecents();
+  const [saved, setSaved] = useSaved();
+  const { query, status, results, failed, search } = usePlaceSearch();
 
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
-  const [active, setActive] = useState<Field>(initialField);
-  const [query, setQuery] = useState("");
+  const [active, setActive] = useState<Field>(setting ? "to" : initialField);
   const [listTab, setListTab] = useState<ListTab>("recent");
-  const [results, setResults] = useState<Place[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
 
   const fromRef = useRef<HTMLInputElement>(null);
   const toRef = useRef<HTMLInputElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const pending = useRef<{ timer?: number; controller?: AbortController }>({});
 
   // Focus the active field when the screen opens, as the prototype did.
   useEffect(() => {
-    const input = initialField === "from" ? fromRef.current : toRef.current;
+    const input = setting || initialField === "to" ? toRef.current : fromRef.current;
     if (!input) return;
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
-  }, [initialField]);
+  }, [initialField, setting]);
 
-  useEffect(() => () => pending.current.controller?.abort(), []);
+  // Keep the highlighted result in view when moving through a long list by keyboard.
+  useEffect(() => {
+    if (highlighted >= 0) document.getElementById(`place-option-${highlighted}`)?.scrollIntoView({ block: "nearest" });
+  }, [highlighted]);
 
-  function search(text: string) {
-    setQuery(text);
-    window.clearTimeout(pending.current.timer);
-    pending.current.controller?.abort();
-    if (!text.trim()) {
-      setResults([]);
-      setSearching(false);
-      return;
-    }
-    setSearching(true);
-    pending.current.timer = window.setTimeout(async () => {
-      const controller = new AbortController();
-      pending.current.controller = controller;
-      try {
-        const res = await fetch(`/api/places?q=${encodeURIComponent(text)}`, { signal: controller.signal });
-        const data: { places: Place[] } = await res.json();
-        setResults(data.places);
-        setSearching(false);
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          setResults([]);
-          setSearching(false);
-        }
-      }
-    }, 150);
+  function runSearch(text: string) {
+    setHighlighted(-1);
+    search(text);
   }
 
   function plan(f: string, t: string) {
@@ -92,8 +100,16 @@ export function SearchView({ initialFrom, initialTo, initialField }: { initialFr
     router.push(routesHref(f, t));
   }
 
-  function pick(name: string) {
-    search("");
+  /** `place` is absent only for "Current location", which has no stored details. */
+  function choose(name: string, place?: Place) {
+    runSearch("");
+    if (setting) {
+      if (!place) return;
+      setSaved({ ...saved, [setting]: place });
+      toast(`${SLOT_LABEL[setting]} saved`);
+      router.push("/saved");
+      return;
+    }
     if (active === "from") {
       setFrom(name);
       if (!to) {
@@ -103,6 +119,7 @@ export function SearchView({ initialFrom, initialTo, initialField }: { initialFr
       }
       plan(name, to);
     } else {
+      if (place) addRecent(place);
       setTo(name);
       plan(from, name);
     }
@@ -111,36 +128,50 @@ export function SearchView({ initialFrom, initialTo, initialField }: { initialFr
   function activate(field: Field, input: HTMLInputElement) {
     if (active === field) return;
     setActive(field);
-    search("");
+    runSearch("");
     input.select();
   }
 
   function swap() {
-    if (to || from) {
-      const nextFrom = to || "";
-      const nextTo = from === CURRENT_LOCATION ? "Preston Road" : from;
-      setFrom(nextFrom);
-      setTo(nextTo);
-    }
-    search("");
+    // "Current location" can't be a destination, so it is left blank for the user to fill in.
+    setFrom(to);
+    setTo(from === CURRENT_LOCATION ? "" : from);
+    runSearch("");
   }
 
   const q = query.trim();
-  let items: Item[];
-  if (q) items = results.map((p) => ({ name: p.name, description: p.description, icon: p.kind }));
-  else if (listTab === "recent") items = recents.map((name) => ({ name, description: "Recent", icon: "clock" }));
-  else
-    items = [
-      { name: saved.home, description: "Home", icon: "home" },
-      { name: saved.work, description: "Work", icon: "work" },
-    ];
+  const searching = status === "searching";
+  const listed: ListedPlace[] =
+    listTab === "recent"
+      ? recents.map((place) => ({ place, icon: "clock", label: "Recent" }))
+      : (["home", "work"] as const).flatMap((slot): ListedPlace[] => {
+          const place = saved[slot];
+          return place ? [{ place, icon: slot, label: SLOT_LABEL[slot] }] : [];
+        });
+  const hasResults = q.length >= MIN_QUERY_LENGTH && results.length > 0;
 
   function onInputKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    if (q && searching) return;
-    const first = active === "from" && !q ? CURRENT_LOCATION : items[0]?.name;
-    if (first) pick(first);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (!hasResults) return;
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setHighlighted((highlighted + step + results.length) % results.length);
+    } else if (e.key === "Escape") {
+      if (!q) return;
+      e.preventDefault();
+      runSearch("");
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (q) {
+        if (searching) return;
+        const place = results[highlighted >= 0 ? highlighted : 0];
+        if (place) choose(place.name, place);
+      } else if (active === "from" && !setting) {
+        choose(CURRENT_LOCATION);
+      } else if (listed[0]) {
+        choose(listed[0].place.name, listed[0].place);
+      }
+    }
   }
 
   function onTabKey(e: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -155,91 +186,101 @@ export function SearchView({ initialFrom, initialTo, initialField }: { initialFr
     tabRefs.current[next]?.focus();
   }
 
+  // One message per state. It is shown on screen and read out by the live region below.
+  let message = "";
+  if (status === "short") message = `Type at least ${MIN_QUERY_LENGTH} characters to search.`;
+  else if (status === "searching" && !hasResults) message = "Searching…";
+  else if (status === "error") message = "Search isn’t working right now. Please try again in a moment.";
+  else if (status === "limited") message = "You’re searching very quickly. Wait a few seconds, then try again.";
+  else if (status === "done" && !results.length) message = `No places match “${q}”. Try a station name or postcode.`;
+  const note = status === "done" && failed.length ? failedMessage(failed) : "";
+
   let announcement = "";
-  if (q && !searching) {
-    announcement = results.length
-      ? `${results.length} ${results.length === 1 ? "place" : "places"} found`
-      : `No places match ${q}`;
+  if (status === "done") {
+    const count = results.length ? `${results.length} ${results.length === 1 ? "place" : "places"} found` : message;
+    announcement = note ? `${count}. ${note}` : count;
+  } else if (status === "error" || status === "limited") {
+    announcement = message;
   }
 
-  const rows = (
-    <>
-      {active === "from" && !q && (
-        <li>
-          <button type="button" className="row" onClick={() => pick(CURRENT_LOCATION)}>
-            <span className="ico violet">
-              <Icon name="locate" />
-            </span>
-            <span className="meta">
-              <b>Current location</b>
-              <small>Near Preston Road</small>
-            </span>
-          </button>
-        </li>
-      )}
-      {items.map((item) => (
-        <li key={`${item.description}-${item.name}`}>
-          <button type="button" className="row" onClick={() => pick(item.name)}>
-            <span className="ico">
-              <Icon name={item.icon} />
-            </span>
-            <span className="meta">
-              <b>{item.name}</b>
-              <small>{item.description}</small>
-            </span>
-          </button>
-        </li>
-      ))}
-      {q && !searching && items.length === 0 && (
-        <li className="empty">No places match “{query}”. Try a station name or postcode.</li>
-      )}
-      {q && searching && items.length === 0 && <li className="empty">Searching…</li>}
-    </>
-  );
+  function inputProps(field: Field) {
+    const isActive = active === field;
+    return {
+      role: "combobox" as const,
+      "aria-autocomplete": "list" as const,
+      "aria-expanded": isActive && hasResults,
+      "aria-controls": isActive && hasResults ? RESULTS_ID : undefined,
+      "aria-activedescendant": isActive && hasResults && highlighted >= 0 ? `place-option-${highlighted}` : undefined,
+      autoComplete: "off",
+      "data-active": isActive,
+    };
+  }
+
+  const fieldsLabel = setting ? `Set ${SLOT_LABEL[setting].toLowerCase()}` : "Journey";
+
+  const savedRows = (["home", "work"] as const).map((slot) => {
+    const place = saved[slot];
+    if (place) return null;
+    return (
+      <li key={slot}>
+        <Link className="row" href={`/search?set=${slot}`}>
+          <span className="ico">
+            <Icon name={slot} />
+          </span>
+          <span className="meta">
+            <b>Set {SLOT_LABEL[slot].toLowerCase()}</b>
+            <small>Search for a station, postcode or address</small>
+          </span>
+        </Link>
+      </li>
+    );
+  });
 
   return (
     <>
-      <TopBar title="Plan a journey" backHref="/" />
-      <form className="fields" role="search" aria-label="Journey" onSubmit={(e) => e.preventDefault()}>
+      <TopBar title={setting ? `Set ${SLOT_LABEL[setting].toLowerCase()}` : "Plan a journey"} backHref={setting ? "/saved" : "/"} />
+      <form className="fields" role="search" aria-label={fieldsLabel} onSubmit={(e) => e.preventDefault()}>
         <div className="stack">
-          <label className="field">
-            <span className="dot" aria-hidden="true" />
-            <span className="visually-hidden">Start</span>
-            <input
-              ref={fromRef}
-              placeholder="Start"
-              value={from}
-              data-active={active === "from"}
-              autoComplete="off"
-              onFocus={(e) => activate("from", e.currentTarget)}
-              onChange={(e) => {
-                setFrom(e.target.value);
-                search(e.target.value);
-              }}
-              onKeyDown={onInputKey}
-            />
-          </label>
+          {!setting && (
+            <label className="field">
+              <span className="dot" aria-hidden="true" />
+              <span className="visually-hidden">Start</span>
+              <input
+                ref={fromRef}
+                placeholder="Start"
+                value={from}
+                {...inputProps("from")}
+                onKeyDown={onInputKey}
+                onFocus={(e) => activate("from", e.currentTarget)}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  runSearch(e.target.value);
+                }}
+              />
+            </label>
+          )}
           <label className="field">
             <span className="dot end" aria-hidden="true" />
-            <span className="visually-hidden">Destination</span>
+            <span className="visually-hidden">{setting ? SLOT_LABEL[setting] : "Destination"}</span>
             <input
               ref={toRef}
-              placeholder="Destination"
+              placeholder={setting ? "Station, postcode or address" : "Destination"}
               value={to}
-              data-active={active === "to"}
-              autoComplete="off"
+              {...inputProps("to")}
+              onKeyDown={onInputKey}
               onFocus={(e) => activate("to", e.currentTarget)}
               onChange={(e) => {
                 setTo(e.target.value);
-                search(e.target.value);
+                runSearch(e.target.value);
               }}
-              onKeyDown={onInputKey}
             />
           </label>
         </div>
-        <button type="button" className="iconbtn alt" aria-label="Swap start and destination" onClick={swap}>
-          <Icon name="swap" />
-        </button>
+        {!setting && (
+          <button type="button" className="iconbtn alt" aria-label="Swap start and destination" onClick={swap}>
+            <Icon name="swap" />
+          </button>
+        )}
       </form>
 
       <p className="visually-hidden" aria-live="polite" aria-atomic="true">
@@ -247,10 +288,32 @@ export function SearchView({ initialFrom, initialTo, initialField }: { initialFr
       </p>
 
       {q ? (
-        <ul className="list" aria-label="Search results">
-          {rows}
-        </ul>
-      ) : (
+        <>
+          {hasResults && (
+            <ul className="list" id={RESULTS_ID} role="listbox" aria-label="Search results">
+              {results.map((place, i) => (
+                <li
+                  key={place.id}
+                  id={`place-option-${i}`}
+                  role="option"
+                  aria-selected={i === highlighted}
+                  onClick={() => choose(place.name, place)}
+                >
+                  <div className="row">
+                    <PlaceItem place={place} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {(message || note) && (
+            <div className="list">
+              {message && <p className="empty" style={{ margin: 0 }}>{message}</p>}
+              {note && <p className="empty" style={{ margin: 0 }}>{note}</p>}
+            </div>
+          )}
+        </>
+      ) : setting ? null : (
         <>
           <div className="tabs" role="tablist" aria-label="Suggestions">
             {LIST_TABS.map((tab, i) => (
@@ -273,10 +336,47 @@ export function SearchView({ initialFrom, initialTo, initialField }: { initialFr
             ))}
           </div>
           <div role="tabpanel" id="suggestions-panel" aria-labelledby={`tab-${listTab}`}>
-            <ul className="list">{rows}</ul>
+            <ul className="list">
+              {active === "from" && (
+                <li>
+                  <button type="button" className="row" onClick={() => choose(CURRENT_LOCATION)}>
+                    <span className="ico violet">
+                      <Icon name="locate" />
+                    </span>
+                    <span className="meta">
+                      <b>Current location</b>
+                      <small>Not live yet in this prototype</small>
+                    </span>
+                  </button>
+                </li>
+              )}
+              {listed.map(({ place, icon, label }) => (
+                <li key={`${label}-${place.id}`}>
+                  <button type="button" className="row" onClick={() => choose(place.name, place)}>
+                    <PlaceItem place={place} icon={icon} label={label} />
+                  </button>
+                </li>
+              ))}
+              {listTab === "saved" && savedRows}
+              {listTab === "recent" && listed.length === 0 && (
+                <li className="empty">Places you plan journeys to appear here.</li>
+              )}
+            </ul>
           </div>
         </>
       )}
+
+      <p className="credit">
+        Place search by{" "}
+        <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">
+          Geoapify<span className="visually-hidden"> (opens in a new tab)</span>
+        </a>
+        . ©{" "}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
+          OpenStreetMap contributors<span className="visually-hidden"> (opens in a new tab)</span>
+        </a>
+        . Stations and stops: Powered by TfL Open Data.
+      </p>
     </>
   );
 }

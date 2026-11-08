@@ -1,22 +1,5 @@
 // Sample data copied from the design prototype (illustrative timings, not live data).
-import type { Alternative, Departure, LineStatus, Place, Route } from "./types";
-
-export const PLACES: Place[] = [
-  { name: "Preston Road", description: "Underground station, Metropolitan", kind: "tube" },
-  { name: "Great Portland Street", description: "Underground station, Circle, H&C, Metropolitan", kind: "tube" },
-  { name: "University of Westminster", description: "309 Regent Street, London W1B 2HW", kind: "pin" },
-  { name: "Wembley Park", description: "Underground station, Jubilee, Metropolitan", kind: "tube" },
-  { name: "Baker Street", description: "Underground station, 5 lines", kind: "tube" },
-  { name: "Oxford Circus", description: "Underground station, Bakerloo, Central, Victoria", kind: "tube" },
-  { name: "Wembley Stadium", description: "Wembley, London HA9 0WS", kind: "pin" },
-  { name: "King’s Cross St. Pancras", description: "Underground and rail station", kind: "rail" },
-  { name: "Hammersmith", description: "Underground station", kind: "tube" },
-  { name: "Bank", description: "Underground station", kind: "tube" },
-  { name: "O2 Academy Brixton", description: "211 Stockwell Road, London SW9 9SL", kind: "pin" },
-  { name: "Harrow-on-the-Hill", description: "Underground and rail station", kind: "rail" },
-  { name: "Paddington", description: "Underground and rail station", kind: "rail" },
-  { name: "Westfield London", description: "Ariel Way, London W12 7GF", kind: "pin" },
-];
+import type { Alternative, Departure, LineStatus, Route } from "./types";
 
 export const ROUTES: Omit<Route, "from" | "to">[] = [
   {

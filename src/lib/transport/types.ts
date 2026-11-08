@@ -1,11 +1,38 @@
 // Shared transport types. Providers (sample data today, TfL later) must return these shapes.
 
-export type PlaceKind = "tube" | "rail" | "pin";
+export type PlaceKind = "station" | "bus-stop" | "postcode" | "address" | "place";
 
+/**
+ * A place the user can pick. Carries everything the journey planner needs, so it is stored
+ * as a whole (recents, Home, Work) rather than as a name.
+ */
 export interface Place {
+  /** Stable key: the TfL id for stations and stops, otherwise built from the postcode or coordinates. */
+  id: string;
   name: string;
-  description: string;
+  /** Short extra text: modes for a station, direction for a bus stop, area or address for the rest. */
+  detail: string;
   kind: PlaceKind;
+  lat: number;
+  lon: number;
+  /** TfL StopPoint id, for stations and bus stops only. */
+  tflId?: string;
+  /** TfL mode ids serving a station, e.g. "tube", "national-rail". */
+  modes?: string[];
+  /** Names of the lines serving a station. Absent when TfL's answer was unavailable. */
+  lines?: string[];
+  /** The sign on a bus stop, e.g. "Stop PA". Absent for stops without one or when TfL's answer was unavailable. */
+  indicator?: string;
+}
+
+export type PlaceSearchSource = "stations" | "postcodes" | "addresses";
+
+export interface PlaceSearchResult {
+  places: Place[];
+  /** Services that failed. The places above came from the others. */
+  failed: PlaceSearchSource[];
+  /** True when the caller is searching too fast and was turned away. */
+  limited?: boolean;
 }
 
 export interface WalkLeg {
@@ -97,7 +124,6 @@ export interface JourneyQuery {
 
 /** Everything the app needs from a city's transport data source. */
 export interface TransportProvider {
-  searchPlaces(query: string): Promise<Place[]>;
   getRoutes(query: JourneyQuery): Promise<Route[]>;
   getAlternatives(query: JourneyQuery): Promise<Alternative[]>;
   getLineStatus(): Promise<LineStatusResult>;

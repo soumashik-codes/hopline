@@ -2,7 +2,7 @@
 
 An accessible journey planner for London. An early-stage project exploring how journey planning could work better for disabled travellers.
 
-> **Status:** early prototype. Line status uses live TfL data; search, routes and nearby departures still use sample data.
+> **Status:** early prototype. Line status and place search use live data; routes and nearby departures still use sample data.
 
 ## Why I'm building this
 
@@ -13,7 +13,8 @@ In most journey planners, accessibility is a filter you switch on. I want to fin
 - Journey planning with routes compared by speed, cost, changes and step-free access
 - The stops in between on each leg
 - A step-by-step journey mode that counts down the stops until you get off
-- Line status, saved trips and home/work shortcuts
+- Live place search for stations, bus stops, postcodes, addresses and places across London
+- Line status, saved trips and your own Home and Work places
 
 ## What's next
 
@@ -34,5 +35,5 @@ Next.js, TypeScript and the TfL Unified API. I'm building Hopline using AI-assis
 ## Running it locally
 
 1. Clone the repo and run `npm install`
-2. Copy `.env.example` to `.env.local` and add a free TfL API key from api-portal.tfl.gov.uk
+2. Copy `.env.example` to `.env.local` and add a free TfL API key from api-portal.tfl.gov.uk and a free Geoapify key from geoapify.com (used for address search). Keep both on the server: never prefix them with `NEXT_PUBLIC_`
 3. Run `npm run dev` and open http://localhost:3000

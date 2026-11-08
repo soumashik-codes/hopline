@@ -27,7 +27,7 @@ export default async function HomePage() {
           <path d="M-10 200 C90 180 150 150 208 144 S330 80 420 40" stroke="#9B0056" strokeWidth="5" fill="none" />
           <circle cx="208" cy="144" r="7" fill="var(--surface)" stroke="#9B0056" strokeWidth="4" />
         </svg>
-        <div className="youare" role="img" aria-label="You are here, near Preston Road" />
+        <div className="youare" role="img" aria-label="Sample map. This is not your location" />
         <MapButtons />
       </div>
       <section className="sheet">
@@ -39,6 +39,9 @@ export default async function HomePage() {
         <QuickPlaces />
         <ModeChips />
         <h2 id="nearby-heading">Leaving nearby</h2>
+        <p className="empty" style={{ padding: "0 0 8px" }}>
+          Sample departures for this prototype. They are not live.
+        </p>
         <ul className="plain" aria-labelledby="nearby-heading">
           {departures.map((d, i) => (
             <li className="dep" key={i}>

@@ -15,7 +15,3 @@ export function useNowMinute(): number | null {
     () => null,
   );
 }
-
-export function formatClock(epochMs: number, addMinutes = 0): string {
-  return new Date(epochMs + addMinutes * 60_000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { isEndpoint, type Endpoint } from "@/lib/journey";
 import { isPlace } from "@/lib/places";
 import type { Place } from "@/lib/transport/types";
 
@@ -52,8 +53,8 @@ export function useStored<T>(key: string, fallback: T): [T, (value: T) => void] 
 }
 
 export interface SavedTrip {
-  from: string;
-  to: string;
+  from: Endpoint;
+  to: Endpoint;
 }
 
 export interface SavedPlaces {
@@ -69,10 +70,10 @@ const MAX_RECENTS = 6;
 
 function isTrip(value: unknown): value is SavedTrip {
   const t = value as Record<string, unknown> | null;
-  return typeof t?.from === "string" && typeof t.to === "string";
+  return isEndpoint(t?.from) && isEndpoint(t?.to);
 }
 
-/** Earlier versions stored Home and Work as plain names. Those have no coordinates, so they are dropped, not guessed. */
+/** Earlier versions stored Home, Work and trips as plain names. Those have no coordinates, so they are dropped, not guessed. */
 function readSaved(raw: unknown): SavedPlaces {
   const r = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
   return {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { Icon, type IconName } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
-import { CURRENT_LOCATION, routesHref } from "@/lib/journey";
+import { CURRENT_ENDPOINT, endpointOf, routesHref } from "@/lib/journey";
 import { useSaved } from "@/lib/storage";
 import { useNowMinute } from "@/lib/time";
 
@@ -82,7 +82,7 @@ export function QuickPlaces() {
       ).map(({ slot, label }) => {
         const place = saved[slot];
         return (
-          <Link key={slot} href={place ? routesHref(CURRENT_LOCATION, place.name) : `/search?set=${slot}`}>
+          <Link key={slot} href={place ? routesHref(CURRENT_ENDPOINT, endpointOf(place)) : `/search?set=${slot}`}>
             <Icon name={slot} />
             <span>
               <b>{label}</b>
@@ -102,11 +102,9 @@ const MODES: [string, string, IconName][] = [
   ["rail", "Rail", "rail"],
   ["bike", "Cycle", "bike"],
   ["walk", "Walk", "walk"],
-  ["cab", "Cab", "cab"],
 ];
 
 export function ModeChips() {
-  const toast = useToast();
   const [mode, setMode] = useState("all");
   return (
     <>
@@ -117,10 +115,7 @@ export function ModeChips() {
             key={key}
             type="button"
             aria-pressed={mode === key}
-            onClick={() => {
-              setMode(key);
-              if (key === "walk" || key === "bike" || key === "cab") toast(`Showing ${label.toLowerCase()} first in results`);
-            }}
+            onClick={() => setMode(key)}
           >
             <Icon name={icon} />
             {label}

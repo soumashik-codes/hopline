@@ -42,6 +42,8 @@ interface GeoapifyResult {
   address_line2?: string;
   housenumber?: string;
   result_type?: string;
+  /** Geoapify's category, e.g. "public_transport.bus". Absent for many places. */
+  category?: string;
   lat?: number;
   lon?: number;
   rank?: { confidence?: number; importance?: number };
@@ -88,8 +90,20 @@ function dropDuplicates(candidates: Candidate[]): Place[] {
   return candidates.filter((c) => keep.has(c)).map((c) => c.place);
 }
 
+/**
+ * OpenStreetMap lists railway features such as "Willesden Junction (Acton Branch)" as places. They are
+ * parts of a station or track, not somewhere to go, and TfL already gives the real station. Only
+ * untagged or transport-tagged amenities are dropped, so "Junction Road" and a pub called "The Junction" stay.
+ */
+function isRailwayJunction(r: GeoapifyResult, name: string): boolean {
+  if (r.result_type !== "amenity" || !/junction/i.test(name)) return false;
+  const category = r.category ?? "";
+  return !category || category.startsWith("railway") || category.startsWith("public_transport") || category.startsWith("building.transportation");
+}
+
 function kindOf(r: GeoapifyResult, name: string): PlaceKind {
   const type = r.result_type ?? "";
+  if (r.category?.startsWith("public_transport.bus")) return "bus-stop";
   if (type === "street" || type === "building" || type === "postcode") return "address";
   // Geoapify marks both "10 Downing Street" and "Wembley Stadium" as amenities: a name that starts with the house number is an address.
   if (type === "amenity" && r.housenumber && name.startsWith(r.housenumber)) return "address";
@@ -123,7 +137,7 @@ export async function searchGeocoder(query: string): Promise<Place[]> {
   const candidates: Candidate[] = [];
   for (const r of body.results) {
     const name = (r.address_line1 || r.name || "").trim();
-    if (!name || typeof r.lat !== "number" || typeof r.lon !== "number") continue;
+    if (!name || typeof r.lat !== "number" || typeof r.lon !== "number" || isRailwayJunction(r, name)) continue;
     const id = `geo:${r.lat.toFixed(5)},${r.lon.toFixed(5)}:${name.toLowerCase()}`;
     if (seen.has(id)) continue;
     seen.add(id);

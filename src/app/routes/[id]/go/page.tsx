@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { GoView } from "@/components/routes/GoView";
-import { CURRENT_LOCATION, firstParam } from "@/lib/journey";
-import { getRoute } from "@/lib/transport";
+import { CURRENT_ENDPOINT, detailParams, isResolved, parseEndpoint, parseOptions, searchHref } from "@/lib/journey";
+import { getJourneys } from "@/lib/transport";
 
 export const metadata: Metadata = { title: "On the way – Hopline" };
 
@@ -15,9 +15,14 @@ export default async function GoPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const from = firstParam(sp.from) || CURRENT_LOCATION;
-  const to = firstParam(sp.to);
-  const route = await getRoute(id, { from, to });
-  if (!route || !to) notFound();
-  return <GoView route={route} />;
+  const from = parseEndpoint(sp, "from") ?? CURRENT_ENDPOINT;
+  const to = parseEndpoint(sp, "to");
+  if (!to) notFound();
+  const options = parseOptions(sp);
+  if (!isResolved(from) || !isResolved(to)) redirect(searchHref(from, to, "to"));
+
+  const result = await getJourneys({ from, to, ...options });
+  const journey = result.ok ? result.journeys.find((j) => j.id === id) : undefined;
+  if (!journey) notFound();
+  return <GoView journey={journey} backHref={`/routes/${journey.id}?${detailParams(from, to, options, journey.departs)}`} />;
 }

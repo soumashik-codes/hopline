@@ -1,6 +1,8 @@
 import "server-only";
 
+import { getJourneys } from "./journey";
 import { TflError, tflGet } from "./tfl-client";
+import { stationName } from "./stops";
 import type { LineStatus, LineStatusResult, Place, ServiceLevel, TransportProvider } from "./types";
 
 const STATUS_MODES = "tube,elizabeth-line,dlr,overground,tram";
@@ -90,7 +92,8 @@ function modeRank(mode: string): number {
   return i === -1 ? MODE_ORDER.length : i;
 }
 
-export const tflProvider: Pick<TransportProvider, "getLineStatus"> = {
+export const tflProvider: Pick<TransportProvider, "getLineStatus" | "getJourneys"> = {
+  getJourneys,
   async getLineStatus(): Promise<LineStatusResult> {
     try {
       const { data, fetchedAt } = await tflGet<TflLine[]>(`/Line/Mode/${STATUS_MODES}/Status`, {
@@ -153,11 +156,6 @@ interface StopDetails {
   indicator?: string;
 }
 
-/** "Baker Street Underground Station" becomes "Baker Street"; the mode is shown separately. */
-function stationName(name: string): string {
-  return name.replace(/\s+(?:(?:Underground|DLR|Rail|Overground|Tram|Elizabeth line)\s+)*(?:Station|Stop)$/i, "").trim() || name;
-}
-
 /** "Edgware, Kingsbury Or Wembley Park" becomes "Edgware, Kingsbury or Wembley Park". */
 function sentenceCase(towards: string): string {
   return towards.replace(/\b(Or|And)\b/g, (w) => w.toLowerCase());
@@ -175,7 +173,10 @@ async function detailsFor(ids: string[]): Promise<Map<string, StopDetails>> {
       revalidate: SEARCH_REVALIDATE_SECONDS,
     });
     for (const stop of Array.isArray(data) ? data : [data]) {
-      const names = [...new Set((stop.lines ?? []).map((l) => l.name?.trim()).filter((n): n is string => !!n))];
+      // "9" before "79" before "N18", whatever order TfL lists them in.
+      const names = [...new Set((stop.lines ?? []).map((l) => l.name?.trim()).filter((n): n is string => !!n))].sort((a, b) =>
+        a.localeCompare(b, "en-GB", { numeric: true }),
+      );
       if (stop.id) byId.set(stop.id, { lines: names.length ? names : undefined, indicator: stop.indicator?.trim() || undefined });
     }
   } catch (err) {
@@ -231,6 +232,7 @@ export async function searchTflStops(query: string): Promise<Place[]> {
         lat: m.lat,
         lon: m.lon,
         modes: ["bus"],
+        lines: details.get(m.id)?.lines,
         indicator: details.get(m.id)?.indicator,
       }),
     ),

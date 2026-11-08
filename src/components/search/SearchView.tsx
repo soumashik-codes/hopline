@@ -8,7 +8,7 @@ import { PlaceItem } from "@/components/search/PlaceItem";
 import { usePlaceSearch } from "@/components/search/usePlaceSearch";
 import { useToast } from "@/components/Toast";
 import { TopBar } from "@/components/TopBar";
-import { CURRENT_LOCATION, routesHref } from "@/lib/journey";
+import { CURRENT_ENDPOINT, endpointOf, isResolved, routesHref, sameEndpoint, type Endpoint } from "@/lib/journey";
 import { MIN_QUERY_LENGTH } from "@/lib/places";
 import { useRecents, useSaved } from "@/lib/storage";
 import type { Place, PlaceSearchSource } from "@/lib/transport/types";
@@ -45,8 +45,8 @@ function failedMessage(failed: PlaceSearchSource[]): string {
 }
 
 interface SearchViewProps {
-  initialFrom: string;
-  initialTo: string;
+  initialFrom: Endpoint;
+  initialTo?: Endpoint;
   initialField: Field;
   /** When set, the screen picks the user's Home or Work instead of planning a journey. */
   setting?: SavedSlot;
@@ -59,8 +59,11 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
   const [saved, setSaved] = useSaved();
   const { query, status, results, failed, search } = usePlaceSearch();
 
-  const [from, setFrom] = useState(initialFrom);
-  const [to, setTo] = useState(initialTo);
+  // The text in each box, and the place it stands for. Typing again clears the place until a new one is chosen.
+  const [from, setFrom] = useState(initialFrom.name);
+  const [to, setTo] = useState(initialTo?.name ?? "");
+  const [fromPlace, setFromPlace] = useState<Endpoint | undefined>(initialFrom);
+  const [toPlace, setToPlace] = useState<Endpoint | undefined>(initialTo);
   const [active, setActive] = useState<Field>(setting ? "to" : initialField);
   const [listTab, setListTab] = useState<ListTab>("recent");
   const [highlighted, setHighlighted] = useState(-1);
@@ -87,13 +90,18 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
     search(text);
   }
 
-  function plan(f: string, t: string) {
+  function plan(f: Endpoint | undefined, t: Endpoint | undefined) {
     if (!t) {
       setActive("to");
       toRef.current?.focus();
       return;
     }
-    if (f === t) {
+    if (!f) {
+      setActive("from");
+      fromRef.current?.focus();
+      return;
+    }
+    if (sameEndpoint(f, t) || (isResolved(f) && isResolved(t) && f.lat === t.lat && f.lon === t.lon)) {
       toast("Start and destination are the same");
       return;
     }
@@ -101,7 +109,7 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
   }
 
   /** `place` is absent only for "Current location", which has no stored details. */
-  function choose(name: string, place?: Place) {
+  function choose(endpoint: Endpoint, place?: Place) {
     runSearch("");
     if (setting) {
       if (!place) return;
@@ -111,17 +119,19 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
       return;
     }
     if (active === "from") {
-      setFrom(name);
-      if (!to) {
+      setFrom(endpoint.name);
+      setFromPlace(endpoint);
+      if (!toPlace) {
         setActive("to");
         toRef.current?.focus();
         return;
       }
-      plan(name, to);
+      plan(endpoint, toPlace);
     } else {
       if (place) addRecent(place);
-      setTo(name);
-      plan(from, name);
+      setTo(endpoint.name);
+      setToPlace(endpoint);
+      plan(fromPlace, endpoint);
     }
   }
 
@@ -134,8 +144,11 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
 
   function swap() {
     // "Current location" can't be a destination, so it is left blank for the user to fill in.
+    const oldFrom = fromPlace;
     setFrom(to);
-    setTo(from === CURRENT_LOCATION ? "" : from);
+    setFromPlace(toPlace);
+    setTo(oldFrom?.current ? "" : from);
+    setToPlace(oldFrom?.current ? undefined : oldFrom);
     runSearch("");
   }
 
@@ -165,11 +178,11 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
       if (q) {
         if (searching) return;
         const place = results[highlighted >= 0 ? highlighted : 0];
-        if (place) choose(place.name, place);
+        if (place) choose(endpointOf(place), place);
       } else if (active === "from" && !setting) {
-        choose(CURRENT_LOCATION);
+        choose(CURRENT_ENDPOINT);
       } else if (listed[0]) {
-        choose(listed[0].place.name, listed[0].place);
+        choose(endpointOf(listed[0].place), listed[0].place);
       }
     }
   }
@@ -254,6 +267,7 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
                 onFocus={(e) => activate("from", e.currentTarget)}
                 onChange={(e) => {
                   setFrom(e.target.value);
+                  setFromPlace(undefined);
                   runSearch(e.target.value);
                 }}
               />
@@ -271,6 +285,7 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
               onFocus={(e) => activate("to", e.currentTarget)}
               onChange={(e) => {
                 setTo(e.target.value);
+                setToPlace(undefined);
                 runSearch(e.target.value);
               }}
             />
@@ -297,7 +312,7 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
                   id={`place-option-${i}`}
                   role="option"
                   aria-selected={i === highlighted}
-                  onClick={() => choose(place.name, place)}
+                  onClick={() => choose(endpointOf(place), place)}
                 >
                   <div className="row">
                     <PlaceItem place={place} />
@@ -339,20 +354,20 @@ export function SearchView({ initialFrom, initialTo, initialField, setting }: Se
             <ul className="list">
               {active === "from" && (
                 <li>
-                  <button type="button" className="row" onClick={() => choose(CURRENT_LOCATION)}>
+                  <button type="button" className="row" onClick={() => choose(CURRENT_ENDPOINT)}>
                     <span className="ico violet">
                       <Icon name="locate" />
                     </span>
                     <span className="meta">
                       <b>Current location</b>
-                      <small>Not live yet in this prototype</small>
+                      <small>Uses your device’s location when you plan</small>
                     </span>
                   </button>
                 </li>
               )}
               {listed.map(({ place, icon, label }) => (
                 <li key={`${label}-${place.id}`}>
-                  <button type="button" className="row" onClick={() => choose(place.name, place)}>
+                  <button type="button" className="row" onClick={() => choose(endpointOf(place), place)}>
                     <PlaceItem place={place} icon={icon} label={label} />
                   </button>
                 </li>

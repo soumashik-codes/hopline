@@ -65,9 +65,6 @@ svg.i.sm { width: 16px; height: 16px }
 .quick small { display: block; color: var(--muted); font-size: 13px }
 .quick b { font-weight: 700 }
 h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em }
-.modes { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin: 0 -18px 22px; padding-left: 18px; padding-right: 18px; scrollbar-width: none }
-.modes button { flex: none; display: flex; align-items: center; gap: 8px; border: 1.5px solid var(--line); border-radius: 999px; padding: 9px 14px; font-weight: 600; font-size: 15px }
-.modes button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink) }
 .dep { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line) }
 .dep:first-child { border-top: 0 }
 .dep .meta { flex: 1; min-width: 0 }
@@ -83,7 +80,7 @@ h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em
 
 /* top bars */
 .topbar { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; background: var(--bg); position: sticky; top: 0; z-index: 5 }
-.iconbtn { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); flex: none }
+.iconbtn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); flex: none }
 .iconbtn.alt { background: var(--surface2) }
 .title { font-size: 22px; font-weight: 800; letter-spacing: -.02em; flex: 1; margin: 0 }
 .topbar .title:first-child { padding-left: 4px }
@@ -120,35 +117,61 @@ h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em
 .credit { color: var(--muted); font-size: 13px; padding: 4px 24px 28px; margin: 0 }
 .credit a { display: inline-block; padding: 12px 2px; color: var(--ink); text-decoration: underline }
 
+.statuscard { display: flex; align-items: center; gap: 12px; min-height: 44px; margin: 0 0 18px; padding: 10px 14px; border-radius: 16px; background: var(--surface2); font-weight: 600 }
+.statuscard .dot { flex: none; width: 12px; height: 12px; border: 0; border-radius: 50%; background: var(--good) }
+.statuscard.warn .dot { background: var(--warn) }
+.statuscard.bad .dot { background: var(--bad) }
+.statuscard span:nth-child(2) { flex: 1 }
+
 /* routes */
-.trip { background: var(--surface); border-radius: 20px; margin: 0 14px; padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 10px }
+.trip { background: var(--surface); border-radius: 20px; margin: 0 14px; padding: 8px 8px 8px 16px; display: flex; align-items: center; gap: 10px }
 .trip .meta { flex: 1; min-width: 0; font-weight: 700 }
 .trip .meta span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .trip .meta span + span { color: var(--muted); font-weight: 500 }
-.when { margin: 10px 14px 0; display: flex; gap: 8px }
-.when button { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; background: var(--surface); border-radius: 999px; padding: 8px 12px }
-.sorts { display: flex; gap: 8px; overflow-x: auto; padding: 14px 14px 4px; scrollbar-width: none }
-.sorts button { flex: none; border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 15px; border: 1.5px solid var(--line) }
-.sorts button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accentInk) }
-.alts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 14px 4px }
-.alts button { background: var(--surface); border-radius: 16px; padding: 10px 12px; text-align: left }
-.alts b { display: block; font-size: 20px; font-weight: 800; margin-top: 4px }
-.alts small { color: var(--muted); font-size: 13px }
-.card { display: block; width: calc(100% - 28px); margin: 10px 14px 0; background: var(--surface); border-radius: 20px; padding: 16px; text-align: left }
+.bar { margin: 8px 14px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px }
+.whenbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px; background: var(--surface); font-weight: 700 }
+.whenbtn[aria-expanded="true"] .i:last-child { transform: rotate(180deg) }
+.altlinks { display: flex; gap: 6px; list-style: none; margin: 0 0 0 auto; padding: 0 }
+.altlinks a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 600 }
+.whenform { margin: 8px 14px 0; background: var(--surface); border-radius: 20px; padding: 12px 16px 14px }
+.whenform .choices { display: flex; flex-wrap: wrap; gap: 8px }
+.whenform .choices label { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 999px; font-weight: 600; font-size: 15px }
+.whenform .choices label:has(input:checked) { background: var(--ink); border-color: var(--ink); color: var(--surface) }
+.whenform .choices label:has(input:focus-visible) { outline: 3px solid var(--violet); outline-offset: 2px }
+.whenform .choices input { width: 18px; height: 18px; accent-color: var(--accent) }
+.whenform .at { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-weight: 600; font-size: 14px }
+.whenform .at input { min-height: 44px; border: 1.5px solid var(--line); border-radius: 12px; padding: 0 12px; background: var(--surface2); color: var(--ink); font: inherit; font-weight: 500 }
+.whenform .actions { margin-top: 12px }
+.whenform .actions button { min-height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 700 }
+.whenform .actions .primary { background: var(--accent); color: var(--accentInk) }
+.types { border: 0; margin: 6px 0 0; padding: 0; min-width: 0 }
+.types .scroll { display: flex; gap: 8px; overflow-x: auto; padding: 2px 14px 6px; scrollbar-width: none }
+.types label { position: relative; flex: none; display: flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 999px; font-weight: 600; font-size: 15px; white-space: nowrap; cursor: pointer }
+.types input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer }
+.types label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--accentInk) }
+.types label:has(input:focus-visible) { outline: 3px solid var(--violet); outline-offset: 2px }
+.notice { margin: 10px 14px 0; background: var(--surface); border-radius: 16px; padding: 14px 16px }
+.notice b { display: block }
+.notice a, .notice button { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; margin-right: 12px; font-weight: 700; text-decoration: underline }
+.card { display: block; width: calc(100% - 28px); margin: 8px 14px 0; background: var(--surface); border-radius: 18px; padding: 12px 16px; text-align: left }
 .card .top { display: flex; align-items: baseline; gap: 10px }
-.card .dur { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1 }
+.card .dur { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1 }
 .card .dur small { font-size: 15px; font-weight: 600; margin-left: 2px }
 .card .arr { color: var(--muted); flex: 1 }
+.card .arr b { color: var(--ink) }
 .card .fare { font-weight: 700 }
-.tag { display: inline-block; margin-bottom: 8px; font-size: 13px; font-weight: 700; color: var(--violet) }
-.strip { display: flex; gap: 3px; height: 12px; margin: 14px 0 8px }
+.card .leaves { margin-top: 6px; font-size: 15px }
+.card .leaves b { font-weight: 700 }
+.card .setoff { margin: 6px 0 0; font-size: 15px; overflow-wrap: anywhere }
+.card .setoff b { font-weight: 700 }
+.card .facts { color: var(--muted); font-size: 14px; margin-top: 6px }
+.card .alert { margin-top: 6px; font-size: 14px; font-weight: 700; color: var(--warnInk) }
+.strip { display: flex; gap: 3px; height: 12px; margin: 10px 0 6px }
 .strip span { border-radius: 6px; min-width: 10px }
 .strip span.walk { background: repeating-linear-gradient(90deg, var(--muted) 0 4px, transparent 4px 8px); opacity: .6; height: 4px; align-self: center }
 .legs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; color: var(--muted); list-style: none; margin: 0; padding: 0 }
 .legs li { display: flex; align-items: center; gap: 6px }
 .legs .sep { opacity: .5 }
-.next { margin-top: 10px; font-size: 14px; color: var(--muted) }
-.next b { color: var(--goodInk) }
 .foot { color: var(--muted); font-size: 13px; text-align: center; padding: 18px 24px 28px; margin: 0 }
 
 /* detail */
@@ -168,6 +191,9 @@ h2 { font-size: 19px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.01em
 .step .body > b { display: flex; align-items: center; gap: 6px }
 .step .body small { color: var(--muted); font-size: 14px }
 .step .body small b { color: var(--ink) }
+.step .body .note { margin: 6px 0 0; font-size: 14px; color: var(--warnInk); font-weight: 600 }
+.step .body .access { margin: 6px 0 0; padding: 0; list-style: none; font-size: 14px; color: var(--muted) }
+.step .body .access b { color: var(--ink) }
 .legstops { margin-top: 4px }
 .legstops-btn { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px; margin-left: -12px; border-radius: 999px; font-size: 14px; font-weight: 600 }
 .legstops-btn .i { transition: transform .2s }

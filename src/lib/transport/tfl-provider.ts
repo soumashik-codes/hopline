@@ -1,6 +1,8 @@
 import "server-only";
 
+import { getJourneys } from "./journey";
 import { TflError, tflGet } from "./tfl-client";
+import { stationName } from "./stops";
 import type { LineStatus, LineStatusResult, Place, ServiceLevel, TransportProvider } from "./types";
 
 const STATUS_MODES = "tube,elizabeth-line,dlr,overground,tram";
@@ -90,7 +92,8 @@ function modeRank(mode: string): number {
   return i === -1 ? MODE_ORDER.length : i;
 }
 
-export const tflProvider: Pick<TransportProvider, "getLineStatus"> = {
+export const tflProvider: Pick<TransportProvider, "getLineStatus" | "getJourneys"> = {
+  getJourneys,
   async getLineStatus(): Promise<LineStatusResult> {
     try {
       const { data, fetchedAt } = await tflGet<TflLine[]>(`/Line/Mode/${STATUS_MODES}/Status`, {
@@ -143,19 +146,26 @@ interface TflMatch {
 
 interface TflStopPoint {
   id?: string;
-  lines?: { name?: string }[];
+  lines?: { id?: string; name?: string }[];
+  /** Which lines belong to which mode, so bus routes can be told apart from rail lines. */
+  lineModeGroups?: { modeName?: string; lineIdentifier?: string[] }[];
   /** The sign on a bus stop, e.g. "Stop PA". Stop groups have none. */
   indicator?: string;
 }
 
 interface StopDetails {
+  /** Every line or route, for bus stops. */
   lines?: string[];
+  /** Only tube, DLR, Overground, Elizabeth line, National Rail and tram lines, for stations. */
+  railLines?: string[];
   indicator?: string;
 }
 
-/** "Baker Street Underground Station" becomes "Baker Street"; the mode is shown separately. */
-function stationName(name: string): string {
-  return name.replace(/\s+(?:(?:Underground|DLR|Rail|Overground|Tram|Elizabeth line)\s+)*(?:Station|Stop)$/i, "").trim() || name;
+function sortedNames(names: (string | undefined)[]): string[] | undefined {
+  const unique = [...new Set(names.map((n) => n?.trim()).filter((n): n is string => !!n))].sort((a, b) =>
+    a.localeCompare(b, "en-GB", { numeric: true }),
+  );
+  return unique.length ? unique : undefined;
 }
 
 /** "Edgware, Kingsbury Or Wembley Park" becomes "Edgware, Kingsbury or Wembley Park". */
@@ -175,8 +185,13 @@ async function detailsFor(ids: string[]): Promise<Map<string, StopDetails>> {
       revalidate: SEARCH_REVALIDATE_SECONDS,
     });
     for (const stop of Array.isArray(data) ? data : [data]) {
-      const names = [...new Set((stop.lines ?? []).map((l) => l.name?.trim()).filter((n): n is string => !!n))];
-      if (stop.id) byId.set(stop.id, { lines: names.length ? names : undefined, indicator: stop.indicator?.trim() || undefined });
+      // A big station is listed with its bus routes too; only the lines TfL files under a rail mode are kept for stations.
+      const railIds = new Set(
+        (stop.lineModeGroups ?? []).filter((g) => g.modeName && g.modeName in MODE_LABEL).flatMap((g) => g.lineIdentifier ?? []),
+      );
+      const lines = sortedNames((stop.lines ?? []).map((l) => l.name));
+      const railLines = sortedNames((stop.lines ?? []).filter((l) => l.id && railIds.has(l.id)).map((l) => l.name));
+      if (stop.id) byId.set(stop.id, { lines, railLines, indicator: stop.indicator?.trim() || undefined });
     }
   } catch (err) {
     const code = err instanceof TflError ? err.code : "unexpected";
@@ -218,7 +233,7 @@ export async function searchTflStops(query: string): Promise<Place[]> {
         lat: m.lat,
         lon: m.lon,
         modes,
-        lines: details.get(m.id)?.lines,
+        lines: details.get(m.id)?.railLines,
       };
     }),
     ...busStops.map(
@@ -231,6 +246,7 @@ export async function searchTflStops(query: string): Promise<Place[]> {
         lat: m.lat,
         lon: m.lon,
         modes: ["bus"],
+        lines: details.get(m.id)?.lines,
         indicator: details.get(m.id)?.indicator,
       }),
     ),

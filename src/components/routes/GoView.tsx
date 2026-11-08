@@ -5,27 +5,30 @@ import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import { TopBar } from "@/components/TopBar";
-import { journeyQuery } from "@/lib/journey";
+import { clockOf } from "@/lib/london-time";
 import { getLineInfo } from "@/lib/transport/lines";
 import { stopsLabel } from "@/lib/transport/stops";
-import type { Route } from "@/lib/transport/types";
+import type { Journey } from "@/lib/transport/types";
 
 // Walking steps use the light-mode violet in both themes so white text keeps 4.5:1 contrast.
 const WALK_COLOUR = "#5B4BDB";
 
-export function GoView({ route }: { route: Route }) {
+export function GoView({ journey, backHref }: { journey: Journey; backHref: string }) {
   const router = useRouter();
   const toast = useToast();
   const [step, setStep] = useState(0);
   const [passed, setPassed] = useState(0);
-  const legs = route.legs;
+  const legs = journey.legs;
   const leg = legs[step];
   const last = step === legs.length - 1;
 
   const line = leg.type === "ride" ? getLineInfo(leg.line) : null;
-  const big = leg.type === "walk" ? leg.label : `Ride the ${leg.label} to ${leg.to}`;
-  const tip = leg.type === "walk" ? leg.detail : `${leg.detail}${leg.platform ? ` · ${leg.platform}` : ""}. Board at ${leg.from}.`;
-  const icon = leg.type === "walk" ? "walk" : leg.line === "Bus" ? "bus" : "tube";
+  const big = leg.type === "walk" ? leg.label : `Take ${leg.label} to ${leg.to}`;
+  const tip =
+    leg.type === "walk"
+      ? [leg.distance, `Leave at ${clockOf(leg.departs)}`].filter(Boolean).join(" · ")
+      : `${[leg.detail, leg.platform].filter(Boolean).join(" · ")}${leg.detail || leg.platform ? ". " : ""}Board at ${leg.from} at ${clockOf(leg.departs)}.`;
+  const icon = leg.type === "walk" ? (leg.travel === "cycling" ? "bike" : "walk") : leg.line === "Bus" ? "bus" : "tube";
   const headStyle = {
     "--c": line?.colour ?? WALK_COLOUR,
     "--ct": line?.textColour ?? "#FFFFFF",
@@ -58,7 +61,7 @@ export function GoView({ route }: { route: Route }) {
 
   return (
     <>
-      <TopBar title="On the way" backHref={`/routes/${route.id}?${journeyQuery(route.from, route.to)}`} backLabel="End journey" />
+      <TopBar title="On the way" backHref={backHref} backLabel="End journey" />
       <section className="gohead" style={headStyle} aria-live="polite" aria-atomic="true">
         <small>
           Step {step + 1} of {legs.length} · about {leg.mins} min
@@ -80,6 +83,13 @@ export function GoView({ route }: { route: Route }) {
                 {stopLine}
               </small>
             )}
+            {leg.disruptions.map((d) => (
+              <small key={d} className="stopline">
+                <span aria-hidden="true">⚠ </span>
+                <span className="visually-hidden">Disruption: </span>
+                {d}
+              </small>
+            ))}
             <small>{last ? "Last step" : `Then: ${legs[step + 1].label}`}</small>
           </span>
         </div>

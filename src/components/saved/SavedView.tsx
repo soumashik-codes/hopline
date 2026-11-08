@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { PlaceItem } from "@/components/search/PlaceItem";
 import { TopBar } from "@/components/TopBar";
-import { CURRENT_LOCATION, routesHref } from "@/lib/journey";
+import { CURRENT_ENDPOINT, endpointOf, routesHref } from "@/lib/journey";
 import { useSaved } from "@/lib/storage";
 
 const SLOTS = [
@@ -25,7 +25,7 @@ export function SavedView() {
             <li key={slot} className="slot">
               {place ? (
                 <>
-                  <Link className="row" href={routesHref(CURRENT_LOCATION, place.name)}>
+                  <Link className="row" href={routesHref(CURRENT_ENDPOINT, endpointOf(place))}>
                     <PlaceItem place={place} icon={slot} label={label} />
                   </Link>
                   <Link className="slot-change" href={`/search?set=${slot}`}>
@@ -51,14 +51,14 @@ export function SavedView() {
       {saved.routes.length ? (
         <ul className="list">
           {saved.routes.map((trip) => (
-            <li key={`${trip.from}|${trip.to}`}>
+            <li key={`${trip.from.name}|${trip.from.lat}|${trip.to.name}|${trip.to.lat}|${trip.to.lon}`}>
               <Link className="row" href={routesHref(trip.from, trip.to)}>
                 <span className="ico">
                   <Icon name="star" />
                 </span>
                 <span className="meta">
-                  <b>{trip.to}</b>
-                  <small>from {trip.from}</small>
+                  <b>{trip.to.name}</b>
+                  <small>from {trip.from.name}</small>
                 </span>
               </Link>
             </li>

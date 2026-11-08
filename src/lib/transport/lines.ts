@@ -42,5 +42,5 @@ const LINES: Record<string, Omit<LineInfo, "name">> = {
 export function getLineInfo(name: string): LineInfo {
   const info = LINES[name];
   if (info) return { name, ...info };
-  return { name, short: name.slice(0, 3), spoken: name, colour: "#555555", textColour: WHITE };
+  return { name, short: name.length <= 14 ? name : name.split(" ")[0], spoken: name, colour: "#555555", textColour: WHITE };
 }

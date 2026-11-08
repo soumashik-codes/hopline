@@ -11,7 +11,7 @@ export function RouteStrip({ legs }: { legs: Leg[] }) {
         <span
           key={i}
           className={leg.type === "walk" ? "walk" : undefined}
-          style={{ flex: leg.mins, background: leg.type === "ride" ? getLineInfo(leg.line).colour : undefined }}
+          style={{ flex: Math.max(leg.mins, 1), background: leg.type === "ride" ? getLineInfo(leg.line).colour : undefined }}
         />
       ))}
     </div>
@@ -31,10 +31,10 @@ export function LegsList({ legs }: { legs: Leg[] }) {
           )}
           {leg.type === "walk" ? (
             <>
-              <Icon name="walk" small />
+              <Icon name={leg.travel === "cycling" ? "bike" : "walk"} small />
               <span>
-                {leg.mins}
-                <span className="visually-hidden"> min walk</span>
+                {leg.mins === 0 ? "<1" : leg.mins}
+                <span className="visually-hidden"> {leg.mins === 0 ? "(less than a minute) " : ""}min {leg.travel === "cycling" ? "cycle" : "walk"}</span>
               </span>
             </>
           ) : (

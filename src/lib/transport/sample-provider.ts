@@ -1,14 +1,8 @@
-import { ALTERNATIVES, LINE_STATUS, NEARBY_DEPARTURES, ROUTES } from "./sample-data";
+import { LINE_STATUS, NEARBY_DEPARTURES } from "./sample-data";
 import type { TransportProvider } from "./types";
 
-/** Serves the prototype's sample data. Replace with a TfL provider later. */
-export const sampleProvider: TransportProvider = {
-  async getRoutes({ from, to }) {
-    return ROUTES.map((r) => ({ ...r, from, to }));
-  },
-  async getAlternatives() {
-    return ALTERNATIVES;
-  },
+/** Serves the prototype's sample data for the parts that aren't live yet. Journeys are never sampled. */
+export const sampleProvider: Omit<TransportProvider, "getJourneys"> = {
   async getLineStatus() {
     return { ok: true, source: "sample", statuses: LINE_STATUS };
   },

@@ -1,4 +1,4 @@
-// Shared transport types. Providers (sample data today, TfL later) must return these shapes.
+// Shared transport types. Providers (TfL, plus sample data for nearby departures) must return these shapes.
 
 export type PlaceKind = "station" | "bus-stop" | "postcode" | "address" | "place";
 
@@ -35,56 +35,89 @@ export interface PlaceSearchResult {
   limited?: boolean;
 }
 
-export interface WalkLeg {
-  type: "walk";
-  mins: number;
-  label: string;
-  detail: string;
+/** A place as the journey planner needs it: a name to show and a point to route from or to. */
+export interface PlaceRef {
+  name: string;
+  lat: number;
+  lon: number;
+  /** TfL StopPoint id. When present TfL plans from the stop itself rather than the nearest point. */
+  tflId?: string;
 }
 
-export interface RideLeg {
+/** "YYYY-MM-DDTHH:mm" in London time, which is how TfL writes times and how a datetime-local input does. */
+export type LondonTime = string;
+
+export type JourneyTiming = { mode: "now" } | { mode: "leave" | "arrive"; at: LondonTime };
+
+export type JourneyPreference = "fastest" | "fewest-changes" | "least-walking";
+
+/** "platform": step-free from the street to the platform. "train": all the way onto the train. */
+export type StepFreeLevel = "platform" | "train";
+
+/** Walking or cycling the whole way, which TfL plans as journeys of their own. */
+export type TravelBy = "walking" | "cycling";
+
+export interface JourneyOptions {
+  timing: JourneyTiming;
+  preference: JourneyPreference;
+  stepFree?: StepFreeLevel;
+  /** Buses and walking only. */
+  busOnly: boolean;
+  /** Plan on foot or by bike only. Other options are then ignored. */
+  by?: TravelBy;
+}
+
+interface LegBase {
+  mins: number;
+  departs: LondonTime;
+  arrives: LondonTime;
+  from: string;
+  to: string;
+  /** TfL's own wording for problems on this leg. Empty when TfL reports none. */
+  disruptions: string[];
+}
+
+/** A leg on foot, or by bike when `travel` is "cycling". */
+export interface WalkLeg extends LegBase {
+  type: "walk";
+  travel: TravelBy;
+  label: string;
+  /** "250 m". Absent when TfL gives no distance. */
+  distance?: string;
+}
+
+export interface RideLeg extends LegBase {
   type: "ride";
   /** Line name as known to lines.ts, e.g. "Metropolitan", "Bus", "Chiltern". */
   line: string;
-  mins: number;
   label: string;
+  /** "towards Aldgate". Empty when TfL gives no direction. */
   detail: string;
-  from: string;
-  to: string;
   /** Names of the stops between `from` and `to` (both excluded), in travel order. Empty when there are none. */
   stops: string[];
+  /** Platform or bus stop letter, only when TfL gives one. */
   platform?: string;
   /** Route number for buses, e.g. "223". */
   busNumber?: string;
+  /** True for trains, trams and the Tube, false for buses. Step-free wording only applies to these. */
+  station: boolean;
+  /** What TfL says about getting around at each end (lifts, stairs and so on). Empty when it says nothing. */
+  boardAccess: string[];
+  alightAccess: string[];
 }
 
 export type Leg = WalkLeg | RideLeg;
 
-export type RouteMode = "tube" | "bus" | "rail";
-
-export interface Route {
+export interface Journey {
+  /** Stable for the same departure and arrival times, so a detail page can find the journey again. */
   id: string;
-  tag: string;
+  departs: LondonTime;
+  arrives: LondonTime;
   mins: number;
-  /** Fare in pounds. */
-  fare: number;
-  mode: RouteMode;
+  /** Fare in pounds. Absent when TfL gives none; we never estimate one. */
+  fare?: number;
   changes: number;
-  stepFree: boolean;
-  /** Minutes until the next three departures. */
-  next: number[];
   legs: Leg[];
-  from: string;
-  to: string;
-}
-
-export type AlternativeKind = "walk" | "bike" | "cab";
-
-export interface Alternative {
-  kind: AlternativeKind;
-  label: string;
-  mins: number;
-  note: string;
 }
 
 export interface Departure {
@@ -117,15 +150,25 @@ export type LineStatusResult =
     }
   | { ok: false; reason: "not-configured" | "unavailable" };
 
-export interface JourneyQuery {
-  from: string;
-  to: string;
+export interface JourneyQuery extends JourneyOptions {
+  from: PlaceRef;
+  to: PlaceRef;
 }
+
+export type JourneyResult =
+  | {
+      ok: true;
+      journeys: Journey[];
+      /** Walking or cycling the whole way, only when TfL returned one. */
+      alternatives: { by: TravelBy; journey: Journey }[];
+      /** ISO time TfL produced the answer. Absent when it doesn't say. */
+      updatedAt?: string;
+    }
+  | { ok: false; reason: "not-configured" | "unavailable" };
 
 /** Everything the app needs from a city's transport data source. */
 export interface TransportProvider {
-  getRoutes(query: JourneyQuery): Promise<Route[]>;
-  getAlternatives(query: JourneyQuery): Promise<Alternative[]>;
+  getJourneys(query: JourneyQuery): Promise<JourneyResult>;
   getLineStatus(): Promise<LineStatusResult>;
   getNearbyDepartures(): Promise<Departure[]>;
 }

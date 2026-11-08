@@ -29,13 +29,14 @@ export function placeSummary(place: Place): string {
 
 const MAX_LINES_SHOWN = 6;
 
-/** "Served by Bakerloo, Circle and 3 more", or undefined when we don't know the lines. */
+/** "Served by Bakerloo, Circle and 3 more" or "Bus routes 79, 204 and 1 more", or undefined when we don't know the lines. */
 export function servedBy(place: Place): string | undefined {
   const lines = place.lines;
   if (!lines?.length) return undefined;
   const shown = lines.slice(0, MAX_LINES_SHOWN).join(", ");
   const more = lines.length - MAX_LINES_SHOWN;
-  return `Served by ${shown}${more > 0 ? ` and ${more} more` : ""}`;
+  const prefix = place.kind === "bus-stop" ? "Bus routes" : "Served by";
+  return `${prefix} ${shown}${more > 0 ? ` and ${more} more` : ""}`;
 }
 
 /** Checks data read back from storage, so old or damaged entries are dropped rather than trusted. */

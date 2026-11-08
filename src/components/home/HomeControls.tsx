@@ -74,20 +74,23 @@ export function QuickPlaces() {
   const [saved] = useSaved();
   return (
     <div className="quick">
-      <Link href={routesHref(CURRENT_LOCATION, saved.home)}>
-        <Icon name="home" />
-        <span>
-          <b>Home</b>
-          <small>{saved.home}</small>
-        </span>
-      </Link>
-      <Link href={routesHref(CURRENT_LOCATION, saved.work)}>
-        <Icon name="work" />
-        <span>
-          <b>Work</b>
-          <small>{saved.work}</small>
-        </span>
-      </Link>
+      {(
+        [
+          { slot: "home", label: "Home" },
+          { slot: "work", label: "Work" },
+        ] as const
+      ).map(({ slot, label }) => {
+        const place = saved[slot];
+        return (
+          <Link key={slot} href={place ? routesHref(CURRENT_LOCATION, place.name) : `/search?set=${slot}`}>
+            <Icon name={slot} />
+            <span>
+              <b>{label}</b>
+              <small>{place ? place.name : `Set ${label.toLowerCase()}`}</small>
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }

@@ -9,5 +9,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const from = firstParam(params.from) || CURRENT_LOCATION;
   const to = firstParam(params.to);
   const field = firstParam(params.field) === "from" ? "from" : "to";
-  return <SearchView initialFrom={from} initialTo={to} initialField={field} />;
+  const set = firstParam(params.set);
+  const setting = set === "home" || set === "work" ? set : undefined;
+  return <SearchView initialFrom={from} initialTo={setting ? "" : to} initialField={field} setting={setting} />;
 }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { TflError, tflGet } from "./tfl-client";
-import type { LineStatus, LineStatusResult, ServiceLevel, TransportProvider } from "./types";
+import type { LineStatus, LineStatusResult, Place, ServiceLevel, TransportProvider } from "./types";
 
 const STATUS_MODES = "tube,elizabeth-line,dlr,overground,tram";
 const STATUS_REVALIDATE_SECONDS = 60;
@@ -116,3 +116,123 @@ export const tflProvider: Pick<TransportProvider, "getLineStatus"> = {
     }
   },
 };
+
+const SEARCH_MODES = "tube,dlr,overground,elizabeth-line,national-rail,tram,bus";
+const SEARCH_REVALIDATE_SECONDS = 60 * 60;
+const SEARCH_FETCH = 12;
+const MAX_STATIONS = 5;
+const MAX_BUS_STOPS = 4;
+
+const MODE_LABEL: Record<string, string> = {
+  tube: "Tube",
+  dlr: "DLR",
+  overground: "Overground",
+  "elizabeth-line": "Elizabeth line",
+  "national-rail": "National Rail",
+  tram: "Tram",
+};
+
+interface TflMatch {
+  id?: string;
+  name?: string;
+  lat?: number;
+  lon?: number;
+  modes?: string[];
+  towards?: string;
+}
+
+interface TflStopPoint {
+  id?: string;
+  lines?: { name?: string }[];
+  /** The sign on a bus stop, e.g. "Stop PA". Stop groups have none. */
+  indicator?: string;
+}
+
+interface StopDetails {
+  lines?: string[];
+  indicator?: string;
+}
+
+/** "Baker Street Underground Station" becomes "Baker Street"; the mode is shown separately. */
+function stationName(name: string): string {
+  return name.replace(/\s+(?:(?:Underground|DLR|Rail|Overground|Tram|Elizabeth line)\s+)*(?:Station|Stop)$/i, "").trim() || name;
+}
+
+/** "Edgware, Kingsbury Or Wembley Park" becomes "Edgware, Kingsbury or Wembley Park". */
+function sentenceCase(towards: string): string {
+  return towards.replace(/\b(Or|And)\b/g, (w) => w.toLowerCase());
+}
+
+/**
+ * Station lines and bus stop signs, by TfL id, in one request for the whole search. The search
+ * results don't include them. Empty if TfL can't answer; we never guess either.
+ */
+async function detailsFor(ids: string[]): Promise<Map<string, StopDetails>> {
+  const byId = new Map<string, StopDetails>();
+  if (ids.length === 0) return byId;
+  try {
+    const { data } = await tflGet<TflStopPoint | TflStopPoint[]>(`/StopPoint/${ids.map(encodeURIComponent).join(",")}`, {
+      revalidate: SEARCH_REVALIDATE_SECONDS,
+    });
+    for (const stop of Array.isArray(data) ? data : [data]) {
+      const names = [...new Set((stop.lines ?? []).map((l) => l.name?.trim()).filter((n): n is string => !!n))];
+      if (stop.id) byId.set(stop.id, { lines: names.length ? names : undefined, indicator: stop.indicator?.trim() || undefined });
+    }
+  } catch (err) {
+    const code = err instanceof TflError ? err.code : "unexpected";
+    console.error(`[tfl] stop details failed: ${code}${err instanceof TflError && err.status ? ` (${err.status})` : ""}`);
+  }
+  return byId;
+}
+
+/**
+ * Finds stations and bus stops by name. Throws TflError if the search itself fails; if only the
+ * follow-up lookup of lines fails, the stations are still returned, just without lines.
+ */
+export async function searchTflStops(query: string): Promise<Place[]> {
+  const { data } = await tflGet<{ matches?: TflMatch[] }>(
+    `/StopPoint/Search?query=${encodeURIComponent(query)}&modes=${SEARCH_MODES}&maxResults=${SEARCH_FETCH}`,
+    { revalidate: SEARCH_REVALIDATE_SECONDS },
+  );
+  if (!data || !Array.isArray(data.matches)) throw new TflError("bad-response");
+
+  const valid = data.matches.filter(
+    (m): m is TflMatch & { id: string; name: string; lat: number; lon: number } =>
+      !!m.id && !!m.name && typeof m.lat === "number" && typeof m.lon === "number",
+  );
+  const isStation = (m: TflMatch) => (m.modes ?? []).some((mode) => mode in MODE_LABEL);
+  const stations = valid.filter(isStation).slice(0, MAX_STATIONS);
+  const busStops = valid.filter((m) => !isStation(m) && m.modes?.includes("bus")).slice(0, MAX_BUS_STOPS);
+
+  const details = await detailsFor([...stations, ...busStops].map((s) => s.id));
+
+  return [
+    ...stations.map((m): Place => {
+      const modes = (m.modes ?? []).filter((mode) => mode in MODE_LABEL);
+      return {
+        id: m.id,
+        tflId: m.id,
+        name: stationName(m.name),
+        detail: modes.map((mode) => MODE_LABEL[mode]).join(", "),
+        kind: "station",
+        lat: m.lat,
+        lon: m.lon,
+        modes,
+        lines: details.get(m.id)?.lines,
+      };
+    }),
+    ...busStops.map(
+      (m): Place => ({
+        id: m.id,
+        tflId: m.id,
+        name: m.name,
+        detail: m.towards ? `towards ${sentenceCase(m.towards)}` : "",
+        kind: "bus-stop",
+        lat: m.lat,
+        lon: m.lon,
+        modes: ["bus"],
+        indicator: details.get(m.id)?.indicator,
+      }),
+    ),
+  ];
+}

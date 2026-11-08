@@ -4,12 +4,11 @@ import { sampleProvider } from "./sample-provider";
 import { tflProvider } from "./tfl-provider";
 import type { JourneyQuery, Route, TransportProvider } from "./types";
 
-// The active data source. Line status is live from TfL; everything else is still sample data.
+// The active data source. Line status is live from TfL; routes, alternatives and departures are still sample data.
+// Place search is live and lives in place-search.ts, because it combines several services.
 const provider: TransportProvider = { ...sampleProvider, ...tflProvider };
 
-export function searchPlaces(query: string) {
-  return provider.searchPlaces(query);
-}
+export { searchPlaces } from "./place-search";
 
 export function getRoutes(query: JourneyQuery) {
   return provider.getRoutes(query);

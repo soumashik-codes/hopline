@@ -40,3 +40,13 @@ export function dayLabel(time: LondonTime, now: LondonTime): string {
 export function describeTime(time: LondonTime, now: LondonTime): string {
   return `${dayLabel(time, now)} ${clockOf(time)}`;
 }
+
+/** `time` moved by `minutes` (negative to go back), on the London wall clock. */
+export function addMinutes(time: LondonTime, minutes: number): LondonTime {
+  return new Date(Date.parse(`${time}:00Z`) + minutes * 60_000).toISOString().slice(0, 16);
+}
+
+/** Whole minutes from `a` to `b`. Negative when `b` is earlier. */
+export function minutesBetween(a: LondonTime, b: LondonTime): number {
+  return Math.round((Date.parse(`${b}:00Z`) - Date.parse(`${a}:00Z`)) / 60_000);
+}

@@ -1,7 +1,7 @@
 // URL helpers shared by server and client code. Journey state lives in the query string, as places with
 // coordinates (never just names), so a link always plans the same journey.
 import { isLondonTime } from "@/lib/london-time";
-import type { JourneyOptions, JourneyPreference, PlaceRef, StepFreeLevel } from "@/lib/transport/types";
+import type { JourneyOptions, JourneyPreference, PlaceRef, StepFreeLevel, TravelBy } from "@/lib/transport/types";
 
 export const CURRENT_LOCATION = "Current location";
 
@@ -81,6 +81,7 @@ export function journeyParams(from: Endpoint, to: Endpoint, options: JourneyOpti
   if (options.preference !== "fastest") params.set("pref", options.preference);
   if (options.stepFree) params.set("step", options.stepFree);
   if (options.busOnly) params.set("bus", "1");
+  if (options.by) params.set("by", options.by === "walking" ? "walk" : "cycle");
   return params;
 }
 
@@ -126,11 +127,13 @@ export function parseOptions(params: Params): JourneyOptions {
   const at = firstParam(params.at);
   const pref = firstParam(params.pref);
   const step = firstParam(params.step);
+  const by = firstParam(params.by);
   return {
     timing: (when === "leave" || when === "arrive") && isLondonTime(at) ? { mode: when, at } : { mode: "now" },
     preference: PREFERENCES.find((p) => p === pref) ?? "fastest",
     stepFree: STEP_FREE_LEVELS.find((s) => s === step),
     busOnly: firstParam(params.bus) === "1",
+    by: (by === "walk" ? "walking" : by === "cycle" ? "cycling" : undefined) satisfies TravelBy | undefined,
   };
 }
 

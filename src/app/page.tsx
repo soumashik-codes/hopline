@@ -1,11 +1,25 @@
 import Link from "next/link";
-import { Greeting, MapButtons, ModeChips, QuickPlaces } from "@/components/home/HomeControls";
+import { Greeting, MapButtons, QuickPlaces } from "@/components/home/HomeControls";
 import { Icon } from "@/components/Icon";
 import { LinePill } from "@/components/LinePill";
-import { getNearbyDepartures } from "@/lib/transport";
+import { getLineStatus, getNearbyDepartures, type LineStatusResult } from "@/lib/transport";
+
+/** How many lines are not running a good service, from TfL's own status. Lines whose status we can't read are said so, not counted as good. */
+function summariseStatus(result: LineStatusResult): { text: string; tone: "good" | "warn" | "bad" | "none" } {
+  if (!result.ok) return { text: "Line status isn’t available right now", tone: "none" };
+  const disrupted = result.statuses.filter((s) => s.level === "minor" || s.level === "severe" || s.level === "closure");
+  const unclear = result.statuses.filter((s) => s.level === "unknown").length;
+  if (disrupted.length > 0) {
+    const worst = disrupted.some((s) => s.level === "severe" || s.level === "closure") ? "bad" : "warn";
+    return { text: `${disrupted.length} ${disrupted.length === 1 ? "line" : "lines"} disrupted`, tone: worst };
+  }
+  if (unclear > 0) return { text: `${unclear} ${unclear === 1 ? "line has" : "lines have"} an unclear status`, tone: "none" };
+  return { text: "Good service on all lines", tone: "good" };
+}
 
 export default async function HomePage() {
-  const departures = await getNearbyDepartures();
+  const [departures, lineStatus] = await Promise.all([getNearbyDepartures(), getLineStatus()]);
+  const status = summariseStatus(lineStatus);
   return (
     <>
       <div className="mapwrap">
@@ -37,7 +51,12 @@ export default async function HomePage() {
           Search a place or postcode
         </Link>
         <QuickPlaces />
-        <ModeChips />
+        <Link className={`statuscard ${status.tone === "none" ? "" : status.tone}`} href="/status">
+          <span className="dot" aria-hidden="true" />
+          <span>{status.text}</span>
+          <span className="visually-hidden">. Open line status</span>
+          <span aria-hidden="true">›</span>
+        </Link>
         <h2 id="nearby-heading">Leaving nearby</h2>
         <p className="empty" style={{ padding: "0 0 8px" }}>
           Sample departures for this prototype. They are not live.

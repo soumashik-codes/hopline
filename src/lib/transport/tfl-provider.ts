@@ -146,14 +146,26 @@ interface TflMatch {
 
 interface TflStopPoint {
   id?: string;
-  lines?: { name?: string }[];
+  lines?: { id?: string; name?: string }[];
+  /** Which lines belong to which mode, so bus routes can be told apart from rail lines. */
+  lineModeGroups?: { modeName?: string; lineIdentifier?: string[] }[];
   /** The sign on a bus stop, e.g. "Stop PA". Stop groups have none. */
   indicator?: string;
 }
 
 interface StopDetails {
+  /** Every line or route, for bus stops. */
   lines?: string[];
+  /** Only tube, DLR, Overground, Elizabeth line, National Rail and tram lines, for stations. */
+  railLines?: string[];
   indicator?: string;
+}
+
+function sortedNames(names: (string | undefined)[]): string[] | undefined {
+  const unique = [...new Set(names.map((n) => n?.trim()).filter((n): n is string => !!n))].sort((a, b) =>
+    a.localeCompare(b, "en-GB", { numeric: true }),
+  );
+  return unique.length ? unique : undefined;
 }
 
 /** "Edgware, Kingsbury Or Wembley Park" becomes "Edgware, Kingsbury or Wembley Park". */
@@ -173,11 +185,13 @@ async function detailsFor(ids: string[]): Promise<Map<string, StopDetails>> {
       revalidate: SEARCH_REVALIDATE_SECONDS,
     });
     for (const stop of Array.isArray(data) ? data : [data]) {
-      // "9" before "79" before "N18", whatever order TfL lists them in.
-      const names = [...new Set((stop.lines ?? []).map((l) => l.name?.trim()).filter((n): n is string => !!n))].sort((a, b) =>
-        a.localeCompare(b, "en-GB", { numeric: true }),
+      // A big station is listed with its bus routes too; only the lines TfL files under a rail mode are kept for stations.
+      const railIds = new Set(
+        (stop.lineModeGroups ?? []).filter((g) => g.modeName && g.modeName in MODE_LABEL).flatMap((g) => g.lineIdentifier ?? []),
       );
-      if (stop.id) byId.set(stop.id, { lines: names.length ? names : undefined, indicator: stop.indicator?.trim() || undefined });
+      const lines = sortedNames((stop.lines ?? []).map((l) => l.name));
+      const railLines = sortedNames((stop.lines ?? []).filter((l) => l.id && railIds.has(l.id)).map((l) => l.name));
+      if (stop.id) byId.set(stop.id, { lines, railLines, indicator: stop.indicator?.trim() || undefined });
     }
   } catch (err) {
     const code = err instanceof TflError ? err.code : "unexpected";
@@ -219,7 +233,7 @@ export async function searchTflStops(query: string): Promise<Place[]> {
         lat: m.lat,
         lon: m.lon,
         modes,
-        lines: details.get(m.id)?.lines,
+        lines: details.get(m.id)?.railLines,
       };
     }),
     ...busStops.map(

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
-import { Icon, type IconName } from "@/components/Icon";
+import { useSyncExternalStore } from "react";
+import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import { CURRENT_ENDPOINT, endpointOf, routesHref } from "@/lib/journey";
 import { useSaved } from "@/lib/storage";
@@ -92,36 +92,5 @@ export function QuickPlaces() {
         );
       })}
     </div>
-  );
-}
-
-const MODES: [string, string, IconName][] = [
-  ["all", "All", "step"],
-  ["tube", "Tube", "tube"],
-  ["bus", "Bus", "bus"],
-  ["rail", "Rail", "rail"],
-  ["bike", "Cycle", "bike"],
-  ["walk", "Walk", "walk"],
-];
-
-export function ModeChips() {
-  const [mode, setMode] = useState("all");
-  return (
-    <>
-      <h2 id="modes-heading">Travel by</h2>
-      <div className="modes" role="group" aria-labelledby="modes-heading">
-        {MODES.map(([key, label, icon]) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={mode === key}
-            onClick={() => setMode(key)}
-          >
-            <Icon name={icon} />
-            {label}
-          </button>
-        ))}
-      </div>
-    </>
   );
 }

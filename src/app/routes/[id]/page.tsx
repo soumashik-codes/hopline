@@ -28,7 +28,7 @@ export default async function RouteDetailPage({
   const options = parseOptions(sp);
   if (!isResolved(from) || !isResolved(to)) redirect(searchHref(from, to, "to"));
 
-  const backHref = routesHref(from, to, options);
+  const backHref = routesHref(from, to, { ...options, by: undefined });
   const result = await getJourneys({ from, to, ...options });
 
   if (!result.ok) {

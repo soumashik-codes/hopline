@@ -54,12 +54,17 @@ export type JourneyPreference = "fastest" | "fewest-changes" | "least-walking";
 /** "platform": step-free from the street to the platform. "train": all the way onto the train. */
 export type StepFreeLevel = "platform" | "train";
 
+/** Walking or cycling the whole way, which TfL plans as journeys of their own. */
+export type TravelBy = "walking" | "cycling";
+
 export interface JourneyOptions {
   timing: JourneyTiming;
   preference: JourneyPreference;
   stepFree?: StepFreeLevel;
   /** Buses and walking only. */
   busOnly: boolean;
+  /** Plan on foot or by bike only. Other options are then ignored. */
+  by?: TravelBy;
 }
 
 interface LegBase {
@@ -72,8 +77,10 @@ interface LegBase {
   disruptions: string[];
 }
 
+/** A leg on foot, or by bike when `travel` is "cycling". */
 export interface WalkLeg extends LegBase {
   type: "walk";
+  travel: TravelBy;
   label: string;
   /** "250 m". Absent when TfL gives no distance. */
   distance?: string;
@@ -152,6 +159,8 @@ export type JourneyResult =
   | {
       ok: true;
       journeys: Journey[];
+      /** Walking or cycling the whole way, only when TfL returned one. */
+      alternatives: { by: TravelBy; journey: Journey }[];
       /** ISO time TfL produced the answer. Absent when it doesn't say. */
       updatedAt?: string;
     }

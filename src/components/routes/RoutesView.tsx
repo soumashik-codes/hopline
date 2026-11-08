@@ -2,25 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, useTransition, type KeyboardEvent, type SyntheticEvent } from "react";
 import { Icon } from "@/components/Icon";
 import { LegsList, RouteStrip } from "@/components/RouteStrip";
 import { useToast } from "@/components/Toast";
 import { TopBar } from "@/components/TopBar";
 import { STEP_FREE_LABEL } from "@/lib/accessibility";
-import {
-  detailParams,
-  endpointToStore,
-  routesHref,
-  sameEndpoint,
-  searchHref,
-  type Endpoint,
-} from "@/lib/journey";
+import { detailParams, endpointToStore, routesHref, sameEndpoint, searchHref, type Endpoint } from "@/lib/journey";
 import { clockOf, dayLabel } from "@/lib/london-time";
 import { useSaved } from "@/lib/storage";
-import type { Journey, JourneyOptions, JourneyPreference, JourneyResult, LondonTime, StepFreeLevel } from "@/lib/transport/types";
+import type { Journey, JourneyOptions, JourneyResult, JourneyTiming, LondonTime, RideLeg, TravelBy } from "@/lib/transport/types";
 
-type WhenMode = "now" | "leave" | "arrive";
+type WhenMode = JourneyTiming["mode"];
 
 const WHEN_CHOICES: { mode: WhenMode; label: string }[] = [
   { mode: "now", label: "Leave now" },
@@ -28,13 +21,37 @@ const WHEN_CHOICES: { mode: WhenMode; label: string }[] = [
   { mode: "arrive", label: "Arrive by" },
 ];
 
-const PREFERENCES: { id: JourneyPreference; label: string }[] = [
+type JourneyType = "fastest" | "fewest-changes" | "least-walking" | "step-free-platform" | "step-free-train" | "bus-only";
+
+const JOURNEY_TYPES: { id: JourneyType; label: string }[] = [
   { id: "fastest", label: "Fastest" },
   { id: "fewest-changes", label: "Fewest changes" },
   { id: "least-walking", label: "Least walking" },
+  { id: "step-free-platform", label: "Step-free to platform" },
+  { id: "step-free-train", label: "Step-free to train" },
+  { id: "bus-only", label: "Bus only" },
 ];
 
-const STEP_FREE_LEVELS: StepFreeLevel[] = ["platform", "train"];
+/** The one type that describes the options, so the row can show a single selection. */
+function typeOf(options: JourneyOptions): JourneyType {
+  if (options.stepFree === "platform") return "step-free-platform";
+  if (options.stepFree === "train") return "step-free-train";
+  if (options.busOnly) return "bus-only";
+  return options.preference;
+}
+
+function optionsFor(type: JourneyType, timing: JourneyTiming): JourneyOptions {
+  switch (type) {
+    case "step-free-platform":
+      return { timing, preference: "fastest", stepFree: "platform", busOnly: false };
+    case "step-free-train":
+      return { timing, preference: "fastest", stepFree: "train", busOnly: false };
+    case "bus-only":
+      return { timing, preference: "fastest", busOnly: true };
+    default:
+      return { timing, preference: type, busOnly: false };
+  }
+}
 
 /** "06:37" for today, otherwise "Tomorrow 06:37" or "Mon 9 Nov 06:37". */
 function timeText(time: LondonTime, now: LondonTime): string {
@@ -42,15 +59,21 @@ function timeText(time: LondonTime, now: LondonTime): string {
   return day === "Today" ? clockOf(time) : `${day} ${clockOf(time)}`;
 }
 
+function whenLabel(timing: JourneyTiming, now: LondonTime): string {
+  if (timing.mode === "now") return "Leave now";
+  return `${timing.mode === "leave" ? "Leave at" : "Arrive by"} ${timeText(timing.at, now)}`;
+}
+
 function changesText(changes: number): string {
   return changes === 0 ? "No changes" : changes === 1 ? "1 change" : `${changes} changes`;
 }
 
-function whenText(options: JourneyOptions, now: LondonTime): string {
-  const { timing } = options;
-  if (timing.mode === "now") return "Leaving now";
-  return `${timing.mode === "leave" ? "Leaving" : "Arriving by"} ${timeText(timing.at, now)}`;
+/** "Jubilee" or "Bus N83": how to name the first ride in the set-off line. */
+function rideName(ride: RideLeg): string {
+  return ride.busNumber ? `Bus ${ride.busNumber}` : ride.line;
 }
+
+const BY_LABEL: Record<TravelBy, string> = { walking: "Walk", cycling: "Cycle" };
 
 export function RoutesView({
   from,
@@ -70,11 +93,15 @@ export function RoutesView({
   const toast = useToast();
   const [saved, setSaved] = useSaved();
   const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<WhenMode>(options.timing.mode);
   const [at, setAt] = useState<LondonTime>(options.timing.mode === "now" ? now : options.timing.at);
   const [announcement, setAnnouncement] = useState("");
+  const whenButton = useRef<HTMLButtonElement>(null);
 
   const journeys: Journey[] = result.ok ? result.journeys : [];
+  const alternatives = result.ok ? result.alternatives : [];
+  const selectedType = typeOf(options);
 
   // Announce results once they arrive; the live region exists before its text changes.
   useEffect(() => {
@@ -91,13 +118,28 @@ export function RoutesView({
     startTransition(() => router.replace(routesHref(from, to, next)));
   }
 
-  function submitWhen(e: SyntheticEvent) {
-    e.preventDefault();
-    apply({ ...options, timing: mode === "now" ? { mode: "now" } : { mode, at } });
+  function chooseWhen(next: WhenMode) {
+    setMode(next);
+    // "Leave now" needs nothing more, so it loads straight away.
+    if (next === "now") {
+      setOpen(false);
+      apply({ ...options, timing: { mode: "now" } });
+    }
   }
 
-  function chooseStepFree(level: StepFreeLevel) {
-    apply({ ...options, stepFree: options.stepFree === level ? undefined : level });
+  function submitWhen(e: SyntheticEvent) {
+    e.preventDefault();
+    if (mode === "now") return;
+    setOpen(false);
+    apply({ ...options, timing: { mode, at } });
+    whenButton.current?.focus();
+  }
+
+  function closeOnEscape(e: KeyboardEvent) {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    setOpen(false);
+    whenButton.current?.focus();
   }
 
   function swap() {
@@ -127,61 +169,87 @@ export function RoutesView({
           <span>{from.name}</span>
           <span>to {to.name}</span>
         </p>
+        <button type="button" className="iconbtn alt" aria-label="Save trip" onClick={saveTrip}>
+          <Icon name="star" />
+        </button>
         <button type="button" className="iconbtn alt" aria-label="Swap start and destination" onClick={swap}>
           <Icon name="swap" />
         </button>
       </div>
 
-      <form className="whenform" onSubmit={submitWhen}>
-        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend>When</legend>
-          <div className="choices">
-            {WHEN_CHOICES.map((c) => (
-              <label key={c.mode}>
-                <input type="radio" name="when" value={c.mode} checked={mode === c.mode} onChange={() => setMode(c.mode)} />
-                {c.label}
-              </label>
+      <div className="bar">
+        <button
+          ref={whenButton}
+          type="button"
+          className="whenbtn"
+          aria-expanded={open}
+          aria-controls="when-panel"
+          onClick={() => setOpen(!open)}
+        >
+          <Icon name="clock" small />
+          {whenLabel(options.timing, now)}
+          <Icon name="chevron" small />
+        </button>
+        {alternatives.length > 0 && (
+          <ul className="altlinks" aria-label="Walking and cycling the whole way">
+            {alternatives.map(({ by, journey }) => (
+              <li key={by}>
+                <Link href={`/routes/${journey.id}?${detailParams(from, to, { ...options, by }, journey.departs)}`}>
+                  <Icon name={by === "walking" ? "walk" : "bike"} small />
+                  {BY_LABEL[by]} {journey.mins} min
+                </Link>
+              </li>
             ))}
-          </div>
-        </fieldset>
-        {mode !== "now" && (
-          <label className="at">
-            {mode === "leave" ? "Leave at" : "Arrive by"} (London time)
-            <input type="datetime-local" required value={at} onChange={(e) => setAt(e.target.value)} />
-          </label>
+          </ul>
         )}
-        <div className="actions">
-          <button type="submit" className="primary">
-            Show journeys
-          </button>
-          <button type="button" className="quiet" onClick={saveTrip}>
-            <Icon name="star" small />
-            Save trip
-          </button>
-        </div>
-      </form>
-
-      <div className="filters">
-        <div className="group" role="group" aria-label="Journey type">
-          <span aria-hidden="true">Journey type</span>
-          {PREFERENCES.map((p) => (
-            <button key={p.id} type="button" aria-pressed={options.preference === p.id} onClick={() => apply({ ...options, preference: p.id })}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-        <div className="group" role="group" aria-label="Accessibility and buses">
-          <span aria-hidden="true">Accessibility and buses</span>
-          {STEP_FREE_LEVELS.map((level) => (
-            <button key={level} type="button" aria-pressed={options.stepFree === level} onClick={() => chooseStepFree(level)}>
-              {STEP_FREE_LABEL[level]}
-            </button>
-          ))}
-          <button type="button" aria-pressed={options.busOnly} onClick={() => apply({ ...options, busOnly: !options.busOnly })}>
-            Bus only
-          </button>
-        </div>
       </div>
+
+      {open && (
+        <form id="when-panel" className="whenform" onSubmit={submitWhen} onKeyDown={closeOnEscape}>
+          <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend className="visually-hidden">When</legend>
+            <div className="choices">
+              {WHEN_CHOICES.map((c) => (
+                <label key={c.mode}>
+                  <input type="radio" name="when" value={c.mode} checked={mode === c.mode} onChange={() => chooseWhen(c.mode)} />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {mode !== "now" && (
+            <>
+              <label className="at">
+                {mode === "leave" ? "Leave at" : "Arrive by"} (London time)
+                <input type="datetime-local" required value={at} onChange={(e) => setAt(e.target.value)} />
+              </label>
+              <div className="actions">
+                <button type="submit" className="primary">
+                  Show journeys
+                </button>
+              </div>
+            </>
+          )}
+        </form>
+      )}
+
+      <fieldset className="types">
+        <legend className="visually-hidden">Journey type</legend>
+        <div className="scroll">
+          {JOURNEY_TYPES.map((t) => (
+            <label key={t.id}>
+              <input
+                type="radio"
+                name="journey-type"
+                value={t.id}
+                checked={selectedType === t.id}
+                onChange={() => apply(optionsFor(t.id, options.timing))}
+              />
+              {t.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <p className="visually-hidden" aria-live="polite" aria-atomic="true">
         {announcement}
@@ -200,14 +268,18 @@ export function RoutesView({
           </div>
         ) : journeys.length === 0 ? (
           <p className="empty" style={{ margin: "0 14px" }}>
-            TfL found no journeys between these places {whenText(options, now).toLowerCase()}
-            {options.busOnly || options.stepFree ? " with these options" : ""}. Try another time
-            {options.busOnly || options.stepFree ? ", or turn an option off" : ""}.
+            TfL found no journeys between these places for {whenLabel(options.timing, now).toLowerCase()}
+            {selectedType === "step-free-platform" || selectedType === "step-free-train" || selectedType === "bus-only" ? " with this option" : ""}. Try another
+            time{selectedType === "fastest" || selectedType === "fewest-changes" || selectedType === "least-walking" ? "" : ", or pick another journey type"}.
           </p>
         ) : (
           <ul className="plain">
             {journeys.map((j) => {
               const disrupted = j.legs.some((l) => l.disruptions.length > 0);
+              const board = j.legs.find((l): l is RideLeg => l.type === "ride");
+              // When the journey starts on foot, the time that matters is when to leave the start, from TfL's walk.
+              const [first, second] = j.legs;
+              const walkFirst = first.type === "walk" && first.travel === "walking" && second?.type === "ride" ? { walk: first, ride: second } : undefined;
               return (
                 <li key={j.id}>
                   <Link className="card" href={`/routes/${j.id}?${detailParams(from, to, options, j.departs)}`}>
@@ -217,14 +289,34 @@ export function RoutesView({
                         <small>min</small>
                       </span>
                       <span className="arr">
-                        <span className="visually-hidden">Leave </span>
-                        {timeText(j.departs, now)}
-                        <span aria-hidden="true"> → </span>
-                        <span className="visually-hidden">, arrive </span>
-                        {timeText(j.arrives, now)}
+                        Arrives <b>{timeText(j.arrives, now)}</b>
                       </span>
                       <span className="fare">{j.fare === undefined ? "Fare not available" : `£${j.fare.toFixed(2)}`}</span>
                     </div>
+                    {walkFirst ? (
+                      <div className="setoff">
+                        <div>
+                          Set off <b>{timeText(walkFirst.walk.departs, now)}</b>
+                          <span aria-hidden="true"> · </span>
+                          <span className="visually-hidden">, </span>
+                          {walkFirst.walk.mins === 0 ? "walk under 1 min" : `walk ${walkFirst.walk.mins} min`} to {walkFirst.ride.from}
+                        </div>
+                        <div>
+                          <span className="visually-hidden">Then </span>
+                          {rideName(walkFirst.ride)} <b>{timeText(walkFirst.ride.departs, now)}</b>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="leaves">
+                        Leaves <b>{timeText(board?.departs ?? j.departs, now)}</b>
+                        {board ? (
+                          <>
+                            {" "}
+                            from <b>{board.from}</b>
+                          </>
+                        ) : null}
+                      </div>
+                    )}
                     <RouteStrip legs={j.legs} />
                     <LegsList legs={j.legs} />
                     <div className="facts">

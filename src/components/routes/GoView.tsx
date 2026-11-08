@@ -28,7 +28,7 @@ export function GoView({ journey, backHref }: { journey: Journey; backHref: stri
     leg.type === "walk"
       ? [leg.distance, `Leave at ${clockOf(leg.departs)}`].filter(Boolean).join(" · ")
       : `${[leg.detail, leg.platform].filter(Boolean).join(" · ")}${leg.detail || leg.platform ? ". " : ""}Board at ${leg.from} at ${clockOf(leg.departs)}.`;
-  const icon = leg.type === "walk" ? "walk" : leg.line === "Bus" ? "bus" : "tube";
+  const icon = leg.type === "walk" ? (leg.travel === "cycling" ? "bike" : "walk") : leg.line === "Bus" ? "bus" : "tube";
   const headStyle = {
     "--c": line?.colour ?? WALK_COLOUR,
     "--ct": line?.textColour ?? "#FFFFFF",

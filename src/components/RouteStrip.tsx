@@ -31,10 +31,10 @@ export function LegsList({ legs }: { legs: Leg[] }) {
           )}
           {leg.type === "walk" ? (
             <>
-              <Icon name="walk" small />
+              <Icon name={leg.travel === "cycling" ? "bike" : "walk"} small />
               <span>
                 {leg.mins === 0 ? "<1" : leg.mins}
-                <span className="visually-hidden"> {leg.mins === 0 ? "(less than a minute) " : ""}min walk</span>
+                <span className="visually-hidden"> {leg.mins === 0 ? "(less than a minute) " : ""}min {leg.travel === "cycling" ? "cycle" : "walk"}</span>
               </span>
             </>
           ) : (
